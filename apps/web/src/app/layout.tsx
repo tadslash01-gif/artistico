@@ -42,14 +42,14 @@ export const metadata: Metadata = {
     description:
       "A low-fee marketplace where hobby creators sell crafts, DIY projects, digital assets, and more.",
     url: "https://artistico.redphantomops.com",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Artistico" }],
+    images: [{ url: "/og-image.svg", width: 1200, height: 630, alt: "Artistico" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Artistico — Marketplace for Hobby Creators",
     description:
       "A low-fee marketplace where hobby creators sell crafts, DIY projects, digital assets, and more.",
-    images: ["/og-image.png"],
+    images: ["/og-image.svg"],
   },
   robots: {
     index: true,

@@ -1,8 +1,45 @@
 import type { MetadataRoute } from "next";
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
 
 const BASE_URL = "https://artistico.redphantomops.com";
+const PROJECT_ID = "artistico-78f75";
+
+interface FirestoreDoc {
+  document: {
+    fields: Record<string, { stringValue?: string; timestampValue?: string }>;
+  };
+}
+
+async function queryFirestore(
+  collection: string,
+  field: string,
+  value: string,
+  selectFields: string[]
+): Promise<FirestoreDoc[]> {
+  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:runQuery`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId: collection }],
+        where: {
+          fieldFilter: {
+            field: { fieldPath: field },
+            op: "EQUAL",
+            value: { stringValue: value },
+          },
+        },
+        select: {
+          fields: selectFields.map((f) => ({ fieldPath: f })),
+        },
+      },
+    }),
+    next: { revalidate: 3600 },
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return (data as FirestoreDoc[]).filter((d) => d.document);
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -17,51 +54,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/legal/refund`, changeFrequency: "monthly", priority: 0.2 },
   ];
 
-  // Dynamic routes from Firestore (server-side only)
   try {
-    if (getApps().length === 0) {
-      // In build/server context, use default credentials or service account
-      initializeApp({ projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID });
-    }
-    const db = getFirestore();
+    const [projectDocs, creatorDocs] = await Promise.all([
+      queryFirestore("projects", "status", "published", ["slug", "updatedAt"]),
+      queryFirestore("users", "isCreator", "true", ["uid", "updatedAt"]),
+    ]);
 
-    // Published projects
-    const projectsSnap = await db
-      .collection("projects")
-      .where("status", "==", "published")
-      .select("slug", "updatedAt")
-      .get();
+    const projectRoutes: MetadataRoute.Sitemap = projectDocs.map((d) => ({
+      url: `${BASE_URL}/projects/${d.document.fields.slug?.stringValue ?? ""}`,
+      lastModified: d.document.fields.updatedAt?.timestampValue
+        ? new Date(d.document.fields.updatedAt.timestampValue)
+        : new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
+    }));
 
-    const projectRoutes: MetadataRoute.Sitemap = projectsSnap.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        url: `${BASE_URL}/projects/${data.slug}`,
-        lastModified: data.updatedAt?.toDate() || new Date(),
-        changeFrequency: "weekly" as const,
-        priority: 0.8,
-      };
-    });
-
-    // Creator profiles
-    const creatorsSnap = await db
-      .collection("users")
-      .where("isCreator", "==", true)
-      .select("uid", "updatedAt")
-      .get();
-
-    const creatorRoutes: MetadataRoute.Sitemap = creatorsSnap.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        url: `${BASE_URL}/creators/${data.uid}`,
-        lastModified: data.updatedAt?.toDate() || new Date(),
-        changeFrequency: "weekly" as const,
-        priority: 0.7,
-      };
-    });
+    const creatorRoutes: MetadataRoute.Sitemap = creatorDocs.map((d) => ({
+      url: `${BASE_URL}/creators/${d.document.fields.uid?.stringValue ?? ""}`,
+      lastModified: d.document.fields.updatedAt?.timestampValue
+        ? new Date(d.document.fields.updatedAt.timestampValue)
+        : new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    }));
 
     return [...staticRoutes, ...projectRoutes, ...creatorRoutes];
   } catch {
-    // If Firestore is unavailable at build time, return static routes only
     return staticRoutes;
   }
 }
