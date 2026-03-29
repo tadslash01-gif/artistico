@@ -1,0 +1,113 @@
+import Link from "next/link";
+
+const CATEGORIES = [
+  { name: "Woodworking", slug: "woodworking", emoji: "🪵" },
+  { name: "Digital Art", slug: "digital-art", emoji: "🎨" },
+  { name: "Crafts", slug: "crafts", emoji: "✂️" },
+  { name: "Jewelry", slug: "jewelry", emoji: "💍" },
+  { name: "Ceramics", slug: "ceramics", emoji: "🏺" },
+  { name: "Textiles", slug: "textiles", emoji: "🧶" },
+  { name: "Paper Crafts", slug: "paper-crafts", emoji: "📄" },
+  { name: "3D Printing", slug: "3d-printing", emoji: "🖨️" },
+  { name: "Electronics", slug: "electronics", emoji: "⚡" },
+  { name: "Painting", slug: "painting", emoji: "🖌️" },
+  { name: "Photography", slug: "photography", emoji: "📷" },
+  { name: "Fiber Arts", slug: "fiber-arts", emoji: "🧵" },
+];
+
+export default function Home() {
+  return (
+    <div className="flex flex-col">
+      {/* Hero */}
+      <section className="bg-gradient-to-b from-accent/30 to-background px-4 py-20 text-center sm:py-32">
+        <h1 className="mx-auto max-w-3xl text-4xl font-bold tracking-tight text-foreground sm:text-6xl">
+          Sell what you make.
+          <br />
+          <span className="text-primary">Fund your hobby.</span>
+        </h1>
+        <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
+          Artistico is a low-fee marketplace for hobby creators. Share your projects,
+          sell your creations, and earn back money to keep making things you love.
+        </p>
+        <div className="mt-10 flex items-center justify-center gap-4">
+          <Link
+            href="/signup"
+            className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+          >
+            Start Selling — It&apos;s Free
+          </Link>
+          <Link
+            href="/browse"
+            className="rounded-lg border border-border px-6 py-3 text-sm font-semibold text-foreground hover:bg-muted transition-colors"
+          >
+            Browse Projects
+          </Link>
+        </div>
+        <p className="mt-4 text-sm text-muted-foreground">
+          Only 5% marketplace fee. No monthly costs.
+        </p>
+      </section>
+
+      {/* Categories */}
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <h2 className="text-2xl font-bold text-foreground">
+          Explore by Category
+        </h2>
+        <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          {CATEGORIES.map((cat) => (
+            <Link
+              key={cat.slug}
+              href={`/browse?category=${cat.slug}`}
+              className="flex flex-col items-center gap-2 rounded-xl border border-border bg-white p-4 shadow-sm hover:border-primary/50 hover:shadow-md transition-all"
+            >
+              <span className="text-3xl">{cat.emoji}</span>
+              <span className="text-sm font-medium text-foreground">
+                {cat.name}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="bg-white px-4 py-16 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <h2 className="text-center text-2xl font-bold text-foreground">
+            How It Works
+          </h2>
+          <div className="mt-12 grid gap-8 md:grid-cols-3">
+            {[
+              {
+                step: "1",
+                title: "Create a Project",
+                desc: "Share what you made — photos, materials, your process.",
+              },
+              {
+                step: "2",
+                title: "List Products",
+                desc: "Add physical items, digital downloads, templates, or commissions.",
+              },
+              {
+                step: "3",
+                title: "Get Paid",
+                desc: "Buyers pay through Stripe. You keep 95% of every sale.",
+              },
+            ].map((item) => (
+              <div key={item.step} className="text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
+                  {item.step}
+                </div>
+                <h3 className="mt-4 text-lg font-semibold text-foreground">
+                  {item.title}
+                </h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}

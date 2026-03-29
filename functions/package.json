@@ -1,0 +1,29 @@
+{
+  "name": "@artistico/functions",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'no lint configured'",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "@artistico/shared": "workspace:*",
+    "cors": "^2.8.5",
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.3.0",
+    "stripe": "^17.0.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "firebase-functions-test": "^3.0.0",
+    "typescript": "^5"
+  }
+}

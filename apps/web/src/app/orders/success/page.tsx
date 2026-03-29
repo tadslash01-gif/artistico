@@ -1,0 +1,237 @@
+"use client";
+
+import { use, useEffect, useState } from "react";
+import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
+import { apiFetch } from "@/lib/api";
+import { formatCurrency } from "@/lib/utils";
+import { doc, getDoc } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
+
+interface OrderData {
+  orderId: string;
+  productId: string;
+  projectId: string;
+  amount: number;
+  platformFee: number;
+  status: string;
+  digitalDownloadUrl: string | null;
+  shippingAddress: Record<string, string> | null;
+  createdAt: { seconds: number; nanoseconds: number } | null;
+}
+
+interface ProductData {
+  title: string;
+  type: string;
+  images: string[];
+}
+
+export default function OrderSuccessPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const resolvedParams = use(searchParams);
+  const sessionId = typeof resolvedParams.session_id === "string" ? resolvedParams.session_id : "";
+  const { user } = useAuth();
+  const [order, setOrder] = useState<OrderData | null>(null);
+  const [product, setProduct] = useState<ProductData | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchOrder() {
+      if (!firestore || !user || !sessionId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // Find order by Stripe checkout session ID
+        const { collection, query, where, getDocs } = await import(
+          "firebase/firestore"
+        );
+        const q = query(
+          collection(firestore, "orders"),
+          where("stripeCheckoutSessionId", "==", sessionId),
+          where("buyerId", "==", user.uid)
+        );
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          setLoading(false);
+          return;
+        }
+
+        const orderData = snap.docs[0].data() as OrderData;
+        setOrder(orderData);
+
+        // Fetch product info
+        const productSnap = await getDoc(
+          doc(firestore, "products", orderData.productId)
+        );
+        if (productSnap.exists()) {
+          setProduct(productSnap.data() as ProductData);
+        }
+
+        // If digital, fetch download URL
+        if (
+          productSnap.exists() &&
+          (productSnap.data() as ProductData).type === "digital"
+        ) {
+          try {
+            const { url } = await apiFetch<{ url: string }>(
+              `/users/${user.uid}/download/${orderData.productId}`
+            );
+            setDownloadUrl(url);
+          } catch {
+            // Download may not be ready yet
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load order:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchOrder();
+  }, [user, sessionId]);
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-20 text-center">
+        <div className="h-8 w-8 mx-auto animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <p className="mt-4 text-muted-foreground">Loading your order...</p>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-20 text-center">
+        <div className="text-5xl">📦</div>
+        <h1 className="mt-4 text-2xl font-bold text-foreground">
+          Order Confirmation
+        </h1>
+        <p className="mt-2 text-muted-foreground">
+          {sessionId
+            ? "Your order is being processed. It may take a moment to appear."
+            : "No order session found."}
+        </p>
+        <Link
+          href="/dashboard/orders"
+          className="mt-6 inline-block rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+        >
+          View My Orders
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-lg px-4 py-12">
+      <div className="text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+          <span className="text-3xl">✓</span>
+        </div>
+        <h1 className="mt-4 text-2xl font-bold text-foreground">
+          Order Confirmed!
+        </h1>
+        <p className="mt-2 text-muted-foreground">
+          Thank you for your purchase. Your order has been placed successfully.
+        </p>
+      </div>
+
+      {/* Order Details */}
+      <div className="mt-8 rounded-xl border border-border bg-white p-6">
+        <h2 className="font-semibold text-foreground">Order Details</h2>
+
+        <div className="mt-4 space-y-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Order ID</span>
+            <span className="font-mono text-foreground">
+              #{order.orderId.slice(0, 8)}
+            </span>
+          </div>
+          {product && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Item</span>
+              <span className="text-foreground">{product.title}</span>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Amount</span>
+            <span className="font-semibold text-foreground">
+              {formatCurrency(order.amount)}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Status</span>
+            <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+              {order.status}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Digital Download */}
+      {product?.type === "digital" && (
+        <div className="mt-4 rounded-xl border border-border bg-white p-6">
+          <h2 className="font-semibold text-foreground">Your Download</h2>
+          {downloadUrl ? (
+            <a
+              href={downloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              ⬇ Download Now
+            </a>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Your download link will be available shortly. Check{" "}
+              <Link
+                href="/dashboard/orders"
+                className="text-primary hover:text-primary/80"
+              >
+                My Orders
+              </Link>{" "}
+              to access it later.
+            </p>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">
+            Download links expire after 1 hour. You can request a new one from
+            your orders page.
+          </p>
+        </div>
+      )}
+
+      {/* Physical Item */}
+      {product?.type === "physical" && (
+        <div className="mt-4 rounded-xl border border-border bg-white p-6">
+          <h2 className="font-semibold text-foreground">Shipping</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            The creator will ship your item and provide tracking information.
+            You&apos;ll be able to track your order from your dashboard.
+          </p>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <Link
+          href="/dashboard/orders"
+          className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+        >
+          View My Orders
+        </Link>
+        <Link
+          href="/browse"
+          className="flex-1 rounded-lg border border-border px-4 py-2.5 text-center text-sm font-medium text-foreground hover:bg-muted transition-colors"
+        >
+          Continue Browsing
+        </Link>
+      </div>
+    </div>
+  );
+}

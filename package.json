@@ -1,0 +1,29 @@
+{
+  "name": "artistico",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Low-fee marketplace for hobby creators",
+  "scripts": {
+    "dev": "pnpm --filter @artistico/web dev",
+    "build": "pnpm --filter @artistico/web build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "dev:functions": "pnpm --filter @artistico/functions build:watch",
+    "emulators": "firebase emulators:start --import=./firebase/.emulator-data --export-on-exit",
+    "deploy:staging": "firebase deploy --project staging",
+    "deploy:production": "firebase deploy --project production",
+    "test:visual": "pnpm --filter @artistico/web test:visual",
+    "test:report": "pnpm --filter @artistico/web test:report"
+  },
+  "keywords": [
+    "marketplace",
+    "hobby",
+    "creators"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20"
+  }
+}

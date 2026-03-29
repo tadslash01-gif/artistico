@@ -1,0 +1,73 @@
+artistico/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml                    # Lint, typecheck, test on PR
+│       ├── deploy-staging.yml        # Deploy on merge to develop
+│       └── deploy-production.yml     # Deploy on merge to main
+├── apps/
+│   └── web/                          # Next.js frontend
+│       ├── src/
+│       │   ├── app/                  # App Router pages/layouts
+│       │   │   ├── (auth)/           # Login, signup
+│       │   │   ├── (marketplace)/    # Public browse, project detail
+│       │   │   ├── (dashboard)/      # Creator dashboard (protected)
+│       │   │   ├── layout.tsx
+│       │   │   └── page.tsx
+│       │   ├── components/
+│       │   │   ├── ui/               # Primitives (Button, Card, Input)
+│       │   │   ├── marketplace/      # Project cards, product grids
+│       │   │   ├── creator/          # Profile editor, project editor
+│       │   │   ├── checkout/         # Checkout flow
+│       │   │   └── layout/           # Header, Footer, Nav
+│       │   ├── hooks/                # useAuth, useFirestore, etc.
+│       │   ├── lib/
+│       │   │   ├── firebase.ts       # Client SDK init
+│       │   │   ├── stripe.ts         # Client helpers
+│       │   │   ├── utils.ts          # cn(), formatCurrency
+│       │   │   └── validators.ts     # Zod schemas
+│       │   ├── styles/globals.css
+│       │   └── types/index.ts
+│       ├── public/
+│       ├── next.config.js
+│       ├── tailwind.config.ts
+│       └── package.json
+├── functions/                        # Firebase Cloud Functions
+│   ├── src/
+│   │   ├── index.ts                  # Exports entry point
+│   │   ├── api/
+│   │   │   ├── projects.ts
+│   │   │   ├── products.ts
+│   │   │   ├── orders.ts
+│   │   │   ├── reviews.ts
+│   │   │   ├── messages.ts
+│   │   │   └── users.ts
+│   │   ├── stripe/
+│   │   │   ├── checkout.ts           # Create Checkout Sessions
+│   │   │   ├── connect.ts            # Connect onboarding
+│   │   │   └── webhooks.ts           # Webhook handler
+│   │   ├── triggers/
+│   │   │   ├── onUserCreate.ts
+│   │   │   ├── onOrderCreate.ts
+│   │   │   └── onReviewCreate.ts
+│   │   ├── middleware/
+│   │   │   ├── auth.ts               # Verify Firebase ID tokens
+│   │   │   └── rateLimit.ts
+│   │   └── utils/
+│   │       ├── firestore.ts
+│   │       ├── storage.ts            # Signed URL helpers
+│   │       └── validators.ts
+│   └── package.json
+├── shared/                           # Shared types & Zod validators
+│   ├── types.ts
+│   └── validators.ts
+├── firebase/
+│   ├── firestore.rules
+│   ├── firestore.indexes.json
+│   └── storage.rules
+├── scripts/
+│   ├── seed-firestore.ts
+│   └── stripe-setup.ts
+├── .firebaserc
+├── firebase.json
+├── pnpm-workspace.yaml
+└── package.json                      # Root workspace
