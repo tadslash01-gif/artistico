@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
+import { ArtisticoLogo } from "@/components/branding/ArtisticoLogo";
 
 export function Header() {
   const { user, userData, signOut, loading } = useAuth();
@@ -10,8 +11,8 @@ export function Header() {
     <header className="border-b border-border bg-white">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <span className="text-2xl font-bold text-primary">Artistico</span>
+        <Link href="/" className="flex items-center">
+          <ArtisticoLogo size="sm" />
         </Link>
 
         {/* Navigation */}

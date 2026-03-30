@@ -1,12 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { apiFetch } from "@/lib/api";
 
 export default function SettingsPage() {
-  const { userData } = useAuth();
+  const { userData, signOut } = useAuth();
+  const router = useRouter();
   const [stripeLoading, setStripeLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleStripeOnboarding = async () => {
     setStripeLoading(true);
@@ -39,9 +44,31 @@ export default function SettingsPage() {
   const stripeComplete = userData?.creatorProfile?.stripeOnboardingComplete === true;
   const stripeStarted = userData?.isCreator && userData?.creatorProfile?.stripeAccountId;
 
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true);
+    try {
+      await apiFetch("/users/me", { method: "DELETE" });
+      await signOut();
+      router.push("/");
+    } catch (err: any) {
+      alert(err.message || "Failed to delete account");
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   return (
     <div>
-      <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+        <Link
+          href="/browse"
+          className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+        >
+          &larr; Browse
+        </Link>
+      </div>
 
       {/* Stripe Payouts */}
       <div className="mt-8 rounded-xl border border-border bg-white p-6">
@@ -86,6 +113,42 @@ export default function SettingsPage() {
             >
               {stripeLoading ? "Setting up..." : "Set Up Stripe Payouts"}
             </button>
+          )}
+        </div>
+      </div>
+
+      {/* Delete Account */}
+      <div className="mt-8 rounded-xl border border-red-200 bg-white p-6">
+        <h2 className="text-lg font-semibold text-foreground">Danger Zone</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Permanently delete your account and all associated data. This action cannot be undone.
+        </p>
+
+        <div className="mt-4">
+          {!showDeleteConfirm ? (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+            >
+              Delete Account
+            </button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-red-600 font-medium">Are you sure?</span>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteLoading}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {deleteLoading ? "Deleting..." : "Yes, Delete My Account"}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           )}
         </div>
       </div>

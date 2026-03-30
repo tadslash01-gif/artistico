@@ -3,8 +3,8 @@ import { verifyAuth } from "./middleware/auth";
 import { checkRateLimit, RATE_LIMIT_READ, RATE_LIMIT_WRITE } from "./middleware/rateLimit";
 import { createCheckoutSession } from "./stripe/checkout";
 import { createStripeConnectLink, getStripeDashboardLink } from "./stripe/connect";
-import { stripeSecretKey } from "./stripe/client";
-import { db, storage } from "./admin";
+import { stripeSecretKey, getStripe } from "./stripe/client";
+import { db, auth, storage } from "./admin";
 import {
   CreateProjectSchema,
   UpdateProjectSchema,
@@ -491,6 +491,32 @@ const routes: Record<string, RouteHandler> = {
         },
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+    res.json({ success: true });
+  },
+
+  // ─── Delete Account ──────────────────────────────
+  "DELETE /users/me": async (req, res) => {
+    const uid = req.user!.uid;
+
+    // Delete Stripe Connect account if it exists
+    const userDoc = await db.collection("users").doc(uid).get();
+    const stripeAccountId = userDoc.data()?.creatorProfile?.stripeAccountId;
+    if (stripeAccountId) {
+      try {
+        const stripe = getStripe();
+        await stripe.accounts.del(stripeAccountId);
+      } catch (e) {
+        // Non-fatal — account may already be deleted
+        console.warn("Failed to delete Stripe account:", e);
+      }
+    }
+
+    // Delete user document from Firestore
+    await db.collection("users").doc(uid).delete();
+
+    // Delete Firebase Auth account
+    await auth.deleteUser(uid);
+
     res.json({ success: true });
   },
 
