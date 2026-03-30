@@ -40,13 +40,25 @@ export async function getStripeDashboardLink(
   req: { user?: { uid: string } },
   res: { status(code: number): any; json(body: any): void }
 ): Promise<void> {
+  if (!req.user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   const stripe = getStripe();
-  const uid = req.user!.uid;
+  const uid = req.user.uid;
   const userDoc = await db.collection("users").doc(uid).get();
   const accountId = userDoc.data()?.creatorProfile?.stripeAccountId;
 
   if (!accountId) {
     res.status(400).json({ error: "No Stripe account found" });
+    return;
+  }
+
+  // Verify the account has completed onboarding before creating a login link
+  const account = await stripe.accounts.retrieve(accountId);
+  if (!account.charges_enabled || !account.details_submitted) {
+    res.status(400).json({ error: "Stripe onboarding incomplete", needsOnboarding: true });
     return;
   }
 

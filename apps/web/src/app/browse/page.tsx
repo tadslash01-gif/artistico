@@ -187,14 +187,14 @@ function BrowseContent() {
 
             {/* Inline ad on mobile after project grid */}
             <div className="mt-8 lg:hidden">
-              <InlineBannerAd slot="INLINE_BROWSE" />
+              <InlineBannerAd slot="1890754677" />
             </div>
           </>
         )}
         </div>
 
         {/* Desktop sidebar ad */}
-        <SidebarAd slot="SIDEBAR_BROWSE" />
+        <SidebarAd slot="1890754677" />
       </div>
     </div>
   );

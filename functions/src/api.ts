@@ -526,6 +526,7 @@ import cors from "cors";
 const ALLOWED_ORIGINS = [
   "https://artistico-78f75.web.app",
   "https://artistico-78f75.firebaseapp.com",
+  "https://artistico.redphantomops.com",
   process.env.NODE_ENV !== "production" ? "http://localhost:3000" : "",
 ].filter(Boolean);
 
@@ -571,6 +572,13 @@ const PUBLIC_ROUTES = [
 ];
 
 function isPublicRoute(method: string, path: string): boolean {
+  // Check exact match first to avoid wildcard collisions
+  // (e.g. "GET /users/stripe-dashboard" must NOT match "GET /users/:uid")
+  const exactKey = `${method} ${path}`;
+  if (routes[exactKey]) {
+    return PUBLIC_ROUTES.includes(exactKey);
+  }
+
   for (const route of PUBLIC_ROUTES) {
     const [routeMethod, routePattern] = route.split(" ");
     if (routeMethod !== method) continue;

@@ -27,11 +27,17 @@ export default function SettingsPage() {
       const { url } = await apiFetch<{ url: string }>("/users/stripe-dashboard");
       window.open(url, "_blank");
     } catch (err: any) {
-      alert(err.message || "Failed to open Stripe dashboard");
+      if (err.message?.includes("onboarding incomplete")) {
+        // Stripe account exists but onboarding wasn't finished — restart it
+        handleStripeOnboarding();
+      } else {
+        alert(err.message || "Failed to open Stripe dashboard");
+      }
     }
   };
 
-  const stripeComplete = userData?.isCreator;
+  const stripeComplete = userData?.creatorProfile?.stripeOnboardingComplete === true;
+  const stripeStarted = userData?.isCreator && userData?.creatorProfile?.stripeAccountId;
 
   return (
     <div>
@@ -56,6 +62,20 @@ export default function SettingsPage() {
                 className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
               >
                 Open Stripe Dashboard
+              </button>
+            </div>
+          ) : stripeStarted ? (
+            <div className="flex items-center gap-4">
+              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700">
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                Setup incomplete
+              </span>
+              <button
+                onClick={handleStripeOnboarding}
+                disabled={stripeLoading}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {stripeLoading ? "Setting up..." : "Continue Stripe Setup"}
               </button>
             </div>
           ) : (
