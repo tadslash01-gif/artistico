@@ -1,11 +1,11 @@
-name: Deploy to Production
+name: Build & Validate
 
 on:
   push:
     branches: [main]
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,10 +26,5 @@ jobs:
       - name: Build functions
         run: pnpm --filter @artistico/functions build
 
-      - name: Deploy to Firebase
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PRODUCTION }}
-          channelId: live
-          projectId: ${{ secrets.FIREBASE_PROJECT_ID_PRODUCTION }}
+      # App Hosting auto-deploys on push to main via Cloud Build.
+      # No manual Firebase Hosting deploy step needed.
