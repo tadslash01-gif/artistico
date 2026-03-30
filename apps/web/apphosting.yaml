@@ -44,7 +44,8 @@ env:
     availability:
       - BUILD
       - RUNTIME
-  - variable: MONOREPO_COMMAND
-    value: "pnpm --filter @artistico/web build"
+  - variable: NEXT_PUBLIC_ADSENSE_PUB_ID
+    value: ""
     availability:
       - BUILD
+      - RUNTIME

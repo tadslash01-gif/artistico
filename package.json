@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "pnpm --filter @artistico/web dev",
     "build": "pnpm --filter @artistico/web build",
+    "start": "pnpm --filter @artistico/web start",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "dev:functions": "pnpm --filter @artistico/functions build:watch",

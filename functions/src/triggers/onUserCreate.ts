@@ -3,7 +3,7 @@ import * as admin from "firebase-admin";
 
 const db = admin.firestore();
 
-export const onUserCreated = onDocumentCreated(
+export const onUserDocCreated = onDocumentCreated(
   "users/{uid}",
   async (event) => {
     // This trigger runs after Firebase Auth trigger creates the user doc.

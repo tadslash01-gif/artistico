@@ -1,4 +1,4 @@
-import { auth } from "../index";
+import { auth } from "../admin";
 
 export async function verifyAuth(
   req: { headers: Record<string, any> }

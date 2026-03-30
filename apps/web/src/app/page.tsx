@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { InlineBannerAd } from "@/components/ads/InlineBannerAd";
 
 const CATEGORIES = [
   { name: "Woodworking", slug: "woodworking", emoji: "🪵" },
@@ -68,6 +69,9 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      {/* Ad */}
+      <InlineBannerAd slot="INLINE_HOME" className="my-4" />
 
       {/* How It Works */}
       <section className="bg-white px-4 py-16 sm:px-6 lg:px-8">

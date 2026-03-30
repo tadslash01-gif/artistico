@@ -1,5 +1,5 @@
 import { getStripe } from "./client";
-import { db } from "../index";
+import { db } from "../admin";
 
 const PLATFORM_FEE_PERCENT = 5;
 
@@ -24,6 +24,12 @@ export async function createCheckoutSession(
   const product = productDoc.data()!;
   if (product.status !== "active") {
     res.status(400).json({ error: "Product is not available" });
+    return;
+  }
+
+  // Prevent creators from purchasing their own products
+  if (product.creatorId === req.user!.uid) {
+    res.status(400).json({ error: "You cannot purchase your own product" });
     return;
   }
 

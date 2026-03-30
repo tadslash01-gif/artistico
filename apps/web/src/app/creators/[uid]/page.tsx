@@ -6,6 +6,7 @@ import { doc, getDoc, collection, query, where, orderBy, getDocs } from "firebas
 import { firestore } from "@/lib/firebase";
 import { useAuth } from "@/hooks/useAuth";
 import InquiryForm from "@/components/InquiryForm";
+import { InlineBannerAd } from "@/components/ads/InlineBannerAd";
 
 interface CreatorData {
   uid: string;
@@ -207,6 +208,9 @@ export default function CreatorProfilePage({
           </div>
         )}
       </div>
+
+      {/* Ad */}
+      <InlineBannerAd slot="INLINE_CREATOR" className="my-4" />
 
       {/* Projects */}
       <div className="mt-8">

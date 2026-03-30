@@ -24,8 +24,8 @@ if (typeof window !== "undefined") {
   firestore = getFirestore(app);
   storage = getStorage(app);
 
-  // Connect to emulators in development
-  if (process.env.NODE_ENV === "development") {
+  // Connect to emulators only when explicitly enabled
+  if (process.env.NEXT_PUBLIC_USE_EMULATORS === "true") {
     try {
       connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
       connectFirestoreEmulator(firestore, "localhost", 8080);

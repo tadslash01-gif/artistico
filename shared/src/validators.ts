@@ -138,7 +138,9 @@ export const CreateCreatorProfileSchema = z.object({
     .array(
       z.object({
         platform: z.string().min(1).max(50),
-        url: z.string().url(),
+        url: z.string().url().refine((val) => val.startsWith("https://"), {
+          message: "Social links must use HTTPS",
+        }),
       })
     )
     .max(10)

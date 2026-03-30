@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { AdScript } from "@/components/ads/AdScript";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -73,6 +74,7 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
           <Footer />
         </AuthProvider>
+        <AdScript />
       </body>
     </html>
   );

@@ -1,12 +1,13 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { getStripe, stripeSecretKey, stripeWebhookSecret } from "./client";
-import { db } from "../index";
+import { db } from "../admin";
 import * as admin from "firebase-admin";
 
 export const stripeWebhook = onRequest(
   {
     secrets: [stripeSecretKey, stripeWebhookSecret],
     cors: false,
+    invoker: "public",
   },
   async (req, res) => {
     const stripe = getStripe();

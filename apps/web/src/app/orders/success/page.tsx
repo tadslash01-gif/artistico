@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { apiFetch } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
+import ReviewForm from "@/components/ReviewForm";
+import { InlineBannerAd } from "@/components/ads/InlineBannerAd";
 import { doc, getDoc } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 
@@ -38,6 +40,8 @@ export default function OrderSuccessPage({
   const [product, setProduct] = useState<ProductData | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showReview, setShowReview] = useState(false);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
   useEffect(() => {
     async function fetchOrder() {
@@ -217,6 +221,9 @@ export default function OrderSuccessPage({
         </div>
       )}
 
+      {/* Ad */}
+      <InlineBannerAd slot="INLINE_ORDER_SUCCESS" className="my-4" />
+
       {/* Actions */}
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
         <Link
@@ -232,6 +239,27 @@ export default function OrderSuccessPage({
           Continue Browsing
         </Link>
       </div>
+
+      {/* Leave a Review */}
+      {order && !reviewSubmitted && (
+        <div className="mt-8">
+          {showReview ? (
+            <ReviewForm
+              projectId={order.projectId}
+              productId={order.productId}
+              orderId={order.orderId}
+              onSuccess={() => setReviewSubmitted(true)}
+            />
+          ) : (
+            <button
+              onClick={() => setShowReview(true)}
+              className="w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            >
+              ⭐ Leave a Review
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

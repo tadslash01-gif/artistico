@@ -15,9 +15,11 @@ service firebase.storage {
     }
 
     // ─── Project images ────────────────────────────────
+    // Uploader must set customMetadata.creatorId matching their UID
     match /projects/{projectId}/images/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
+                   && request.resource.metadata.creatorId == request.auth.uid
                    && request.resource.size < 10 * 1024 * 1024
                    && request.resource.contentType.matches('image/(jpeg|png|webp)');
     }
@@ -26,6 +28,7 @@ service firebase.storage {
     match /projects/{projectId}/products/{productId}/images/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
+                   && request.resource.metadata.creatorId == request.auth.uid
                    && request.resource.size < 10 * 1024 * 1024
                    && request.resource.contentType.matches('image/(jpeg|png|webp)');
     }
@@ -35,6 +38,7 @@ service firebase.storage {
     match /projects/{projectId}/products/{productId}/downloads/{fileName} {
       allow read: if false;
       allow write: if request.auth != null
+                   && request.resource.metadata.creatorId == request.auth.uid
                    && request.resource.size < 100 * 1024 * 1024;
     }
   }

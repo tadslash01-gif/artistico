@@ -476,15 +476,23 @@ export default function ProjectEditPage({
                     {product.salesCount} sold
                   </p>
                 </div>
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    product.status === "active"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-100 text-gray-700"
-                  }`}
-                >
-                  {product.status}
-                </span>
+                <div className="flex items-center gap-3">
+                  <Link
+                    href={`/dashboard/projects/${projectId}/products/${product.productId}`}
+                    className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                  >
+                    Edit
+                  </Link>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      product.status === "active"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    {product.status}
+                  </span>
+                </div>
               </div>
             ))}
           </div>

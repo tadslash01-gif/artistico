@@ -3,7 +3,8 @@ import { verifyAuth } from "./middleware/auth";
 import { checkRateLimit, RATE_LIMIT_READ, RATE_LIMIT_WRITE } from "./middleware/rateLimit";
 import { createCheckoutSession } from "./stripe/checkout";
 import { createStripeConnectLink, getStripeDashboardLink } from "./stripe/connect";
-import { db, storage } from "./index";
+import { stripeSecretKey } from "./stripe/client";
+import { db, storage } from "./admin";
 import {
   CreateProjectSchema,
   UpdateProjectSchema,
@@ -11,6 +12,7 @@ import {
   UpdateProductSchema,
   CreateReviewSchema,
   FulfillOrderSchema,
+  CreateCreatorProfileSchema,
 } from "@artistico/shared";
 
 // Simple router for Cloud Functions HTTP endpoint
@@ -40,7 +42,12 @@ type RouteHandler = (req: ApiRequest, res: ApiResponse) => Promise<void>;
 const routes: Record<string, RouteHandler> = {
   // ─── Projects ────────────────────────────────────────
   "POST /projects": async (req, res) => {
-    const { title, description, images, materialsUsed, tags, category } = req.body;
+    const parsed = CreateProjectSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
+      return;
+    }
+    const { title, description, images, materialsUsed, tags, category } = parsed.data;
     const slug =
       title
         .toLowerCase()
@@ -101,7 +108,7 @@ const routes: Record<string, RouteHandler> = {
   },
 
   "GET /projects/:slug": async (req, res) => {
-    const slug = req.params?.slug || req.url.split("/projects/")[1]?.split("?")[0];
+    const slug = req.params!.slug;
     const snapshot = await db.collection("projects").where("slug", "==", slug).limit(1).get();
 
     if (snapshot.empty) {
@@ -113,7 +120,7 @@ const routes: Record<string, RouteHandler> = {
   },
 
   "PUT /projects/:projectId": async (req, res) => {
-    const projectId = req.params?.projectId || req.url.split("/projects/")[1]?.split("?")[0];
+    const projectId = req.params!.projectId;
     const parsed = UpdateProjectSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
@@ -141,7 +148,7 @@ const routes: Record<string, RouteHandler> = {
   },
 
   "DELETE /projects/:projectId": async (req, res) => {
-    const projectId = req.params?.projectId || req.url.split("/projects/")[1]?.split("?")[0];
+    const projectId = req.params!.projectId;
 
     const doc = await db.collection("projects").doc(projectId).get();
     if (!doc.exists) {
@@ -162,7 +169,12 @@ const routes: Record<string, RouteHandler> = {
 
   // ─── Products ────────────────────────────────────────
   "POST /products": async (req, res) => {
-    const { projectId, title, description, type, price, images, digitalFileUrl, inventory, shippingRequired, shippingDetails, commissionDetails } = req.body;
+    const parsed = CreateProductSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
+      return;
+    }
+    const { projectId, title, description, type, price, images, digitalFileUrl, inventory, shippingRequired, shippingDetails, commissionDetails } = parsed.data;
 
     // Verify the project belongs to this creator
     const projectDoc = await db.collection("projects").doc(projectId).get();
@@ -213,13 +225,14 @@ const routes: Record<string, RouteHandler> = {
     if (projectId) query = query.where("projectId", "==", projectId);
     if (creatorId) query = query.where("creatorId", "==", creatorId);
     query = query.where("status", "==", "active");
+    query = query.limit(50);
 
     const snapshot = await query.get();
     res.json({ products: snapshot.docs.map((doc) => doc.data()) });
   },
 
   "PUT /products/:productId": async (req, res) => {
-    const productId = req.params?.productId || req.url.split("/products/")[1]?.split("?")[0];
+    const productId = req.params!.productId;
     const parsed = UpdateProductSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
@@ -247,7 +260,7 @@ const routes: Record<string, RouteHandler> = {
   },
 
   "DELETE /products/:productId": async (req, res) => {
-    const productId = req.params?.productId || req.url.split("/products/")[1]?.split("?")[0];
+    const productId = req.params!.productId;
 
     const doc = await db.collection("products").doc(productId).get();
     if (!doc.exists) {
@@ -285,7 +298,7 @@ const routes: Record<string, RouteHandler> = {
   },
 
   "PUT /orders/:orderId/fulfill": async (req, res) => {
-    const orderId = req.params?.orderId || req.url.split("/orders/")[1]?.split("/")[0];
+    const orderId = req.params!.orderId;
     const parsed = FulfillOrderSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
@@ -373,21 +386,22 @@ const routes: Record<string, RouteHandler> = {
     };
     await reviewRef.set(review);
 
-    // Update project average rating
+    // Update project average rating atomically via transaction
     const projectRef = db.collection("projects").doc(parsed.data.projectId);
-    const projectDoc = await projectRef.get();
-    if (projectDoc.exists) {
+    await db.runTransaction(async (tx) => {
+      const projectDoc = await tx.get(projectRef);
+      if (!projectDoc.exists) return;
       const projectData = projectDoc.data()!;
       const newCount = (projectData.reviewCount || 0) + 1;
       const newAverage =
         ((projectData.averageRating || 0) * (projectData.reviewCount || 0) + parsed.data.rating) / newCount;
 
-      await projectRef.update({
+      tx.update(projectRef, {
         reviewCount: newCount,
         averageRating: Math.round(newAverage * 100) / 100,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-    }
+    });
 
     res.status(201).json({ reviewId: reviewRef.id });
   },
@@ -406,9 +420,8 @@ const routes: Record<string, RouteHandler> = {
 
   // ─── Download ────────────────────────────────────────
   "GET /users/:uid/download/:productId": async (req, res) => {
-    const urlParts = req.url.split("/users/")[1]?.split("/");
-    const uid = req.params?.uid || urlParts?.[0];
-    const productId = req.params?.productId || urlParts?.[2];
+    const uid = req.params!.uid;
+    const productId = req.params!.productId;
 
     if (req.user!.uid !== uid) {
       res.status(403).json({ error: "Not authorized" });
@@ -457,7 +470,12 @@ const routes: Record<string, RouteHandler> = {
 
   // ─── Creator Profile ────────────────────────────────
   "POST /users/creator-profile": async (req, res) => {
-    const { bio, location, specialties, socialLinks } = req.body;
+    const parsed = CreateCreatorProfileSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
+      return;
+    }
+    const { bio, location, specialties, socialLinks } = parsed.data;
     await db
       .collection("users")
       .doc(req.user!.uid)
@@ -477,7 +495,7 @@ const routes: Record<string, RouteHandler> = {
   },
 
   "GET /users/:uid": async (req, res) => {
-    const uid = req.params?.uid || req.url.split("/users/")[1]?.split("?")[0];
+    const uid = req.params!.uid;
     const doc = await db.collection("users").doc(uid).get();
     if (!doc.exists) {
       res.status(404).json({ error: "User not found" });
@@ -505,7 +523,13 @@ const routes: Record<string, RouteHandler> = {
 import * as admin from "firebase-admin";
 import cors from "cors";
 
-const corsHandler = cors({ origin: true });
+const ALLOWED_ORIGINS = [
+  "https://artistico-78f75.web.app",
+  "https://artistico-78f75.firebaseapp.com",
+  process.env.NODE_ENV !== "production" ? "http://localhost:3000" : "",
+].filter(Boolean);
+
+const corsHandler = cors({ origin: ALLOWED_ORIGINS });
 
 // Simple path matching
 function matchRoute(method: string, path: string): { handler: RouteHandler; params?: Record<string, string> } | null {
@@ -567,7 +591,7 @@ function isPublicRoute(method: string, path: string): boolean {
   return false;
 }
 
-export const api = onRequest({ cors: false }, (req, res) => {
+export const api = onRequest({ cors: false, secrets: [stripeSecretKey], invoker: "public" }, (req, res) => {
   corsHandler(req, res, async () => {
     try {
       // Strip /api prefix if present

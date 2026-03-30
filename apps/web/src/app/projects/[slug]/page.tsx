@@ -6,6 +6,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiFetch } from "@/lib/api";
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import InquiryForm from "@/components/InquiryForm";
+import ReviewForm from "@/components/ReviewForm";
+import { SidebarAd } from "@/components/ads/SidebarAd";
+import { InlineBannerAd } from "@/components/ads/InlineBannerAd";
 import {
   collection,
   query,
@@ -14,6 +17,7 @@ import {
   getDocs,
   doc,
   getDoc,
+  limit as firestoreLimit,
 } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 
@@ -93,6 +97,7 @@ export default function ProjectDetailPage({
   const [selectedImage, setSelectedImage] = useState(0);
   const [buyingProduct, setBuyingProduct] = useState<string | null>(null);
   const [showInquiry, setShowInquiry] = useState(false);
+  const [userOrder, setUserOrder] = useState<{ orderId: string; productId: string } | null>(null);
 
   useEffect(() => {
     async function fetchProject() {
@@ -145,6 +150,29 @@ export default function ProjectDetailPage({
 
     fetchProject();
   }, [slug]);
+
+  // Check if user has a completed order for this project (for review eligibility)
+  useEffect(() => {
+    async function checkUserOrder() {
+      if (!firestore || !user || !project) return;
+      try {
+        const q = query(
+          collection(firestore, "orders"),
+          where("buyerId", "==", user.uid),
+          where("projectId", "==", project.projectId),
+          firestoreLimit(1)
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const orderData = snap.docs[0].data();
+          setUserOrder({ orderId: orderData.orderId, productId: orderData.productId });
+        }
+      } catch {
+        // Non-critical — don't block page
+      }
+    }
+    checkUserOrder();
+  }, [user, project]);
 
   const handleBuy = async (productId: string) => {
     if (!user) {
@@ -361,7 +389,33 @@ export default function ProjectDetailPage({
                 ))}
               </div>
             )}
+
+            {/* Review Form — show if user has a completed order */}
+            {userOrder && project && (
+              <div className="mt-6">
+                <ReviewForm
+                  projectId={project.projectId}
+                  productId={userOrder.productId}
+                  orderId={userOrder.orderId}
+                  onSuccess={() => {
+                    // Refresh reviews
+                    if (!firestore) return;
+                    getDocs(
+                      query(
+                        collection(firestore, "reviews"),
+                        where("projectId", "==", project.projectId),
+                        orderBy("createdAt", "desc")
+                      )
+                    ).then((snap) => {
+                      setReviews(snap.docs.map((d) => d.data() as ReviewData));
+                    });
+                  }}
+                />
+              </div>
+            )}
           </div>
+          {/* Ad below reviews */}
+          <InlineBannerAd slot="INLINE_PROJECT" className="mt-8" />
         </div>
 
         {/* Right Column: Products + Creator */}
@@ -502,6 +556,9 @@ export default function ProjectDetailPage({
               </div>
             )}
           </div>
+
+          {/* Sidebar ad below products */}
+          <SidebarAd slot="SIDEBAR_PROJECT" />
         </div>
       </div>
     </div>

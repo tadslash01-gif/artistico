@@ -1,5 +1,5 @@
 import { getStripe } from "./client";
-import { db } from "../index";
+import { db } from "../admin";
 
 export async function createStripeConnectLink(
   req: { headers: Record<string, any>; user?: { uid: string } },

@@ -1,10 +1,4 @@
-import * as admin from "firebase-admin";
-
-admin.initializeApp();
-
-export const db = admin.firestore();
-export const auth = admin.auth();
-export const storage = admin.storage();
+import "./admin";
 
 // ─── API Endpoints ───────────────────────────────────────
 export { api } from "./api";
@@ -13,4 +7,4 @@ export { api } from "./api";
 export { stripeWebhook } from "./stripe/webhooks";
 
 // ─── Firestore Triggers ──────────────────────────────────
-export { onUserCreated } from "./triggers/onUserCreate";
+export { onUserDocCreated } from "./triggers/onUserCreate";
