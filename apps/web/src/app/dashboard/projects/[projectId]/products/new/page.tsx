@@ -99,7 +99,9 @@ export default function NewProductPage({
           storage,
           `projects/${projectId}/products/temp/images/${Date.now()}-${i}.${ext}`
         );
-        const task = uploadBytesResumable(storageRef, file);
+        const task = uploadBytesResumable(storageRef, file, {
+          customMetadata: { creatorId: user!.uid },
+        });
 
         await new Promise<void>((resolve, reject) => {
           task.on(
@@ -151,7 +153,9 @@ export default function NewProductPage({
         storage,
         `projects/${projectId}/products/temp/downloads/${Date.now()}.${ext}`
       );
-      const task = uploadBytesResumable(storageRef, file);
+      const task = uploadBytesResumable(storageRef, file, {
+        customMetadata: { creatorId: user!.uid },
+      });
 
       await new Promise<void>((resolve, reject) => {
         task.on(

@@ -28,6 +28,10 @@ export interface User {
   photoURL: string | null;
   isCreator: boolean;
   creatorProfile: CreatorProfile | null;
+  followersCount: number;
+  followingCount: number;
+  totalSales: number;
+  isVerified: boolean;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -35,6 +39,8 @@ export interface User {
 // ─── Projects ────────────────────────────────────────────
 
 export type ProjectStatus = "draft" | "published" | "archived";
+
+export type ProjectDifficulty = "beginner" | "intermediate" | "advanced";
 
 export interface Project {
   projectId: string;
@@ -51,6 +57,12 @@ export interface Project {
   averageRating: number;
   reviewCount: number;
   viewCount: number;
+  creatorStory: string | null;
+  useCase: string | null;
+  difficulty: ProjectDifficulty | null;
+  timeToBuild: string | null;
+  savesCount: number;
+  trendingScore: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -72,8 +84,9 @@ export interface CommissionDetails {
 
 export interface Product {
   productId: string;
-  projectId: string;
+  projectId: string | null;
   creatorId: string;
+  category: string | null;
   title: string;
   description: string;
   type: ProductType;
@@ -116,7 +129,7 @@ export interface Order {
   buyerId: string;
   creatorId: string;
   productId: string;
-  projectId: string;
+  projectId: string | null;
   stripeCheckoutSessionId: string;
   stripePaymentIntentId: string;
   amount: number;
@@ -194,3 +207,29 @@ export const PROJECT_CATEGORIES = [
 ] as const;
 
 export type ProjectCategory = (typeof PROJECT_CATEGORIES)[number];
+
+// ─── Saves ───────────────────────────────────────────────
+
+export interface Save {
+  saveId: string;
+  userId: string;
+  projectId: string;
+  createdAt: Timestamp;
+}
+
+// ─── Follows ─────────────────────────────────────────────
+
+export interface Follow {
+  followId: string;
+  followerId: string;
+  followingId: string;
+  createdAt: Timestamp;
+}
+
+// ─── Recent Views ────────────────────────────────────────
+
+export interface RecentView {
+  viewId: string;
+  projectId: string;
+  viewedAt: Timestamp;
+}

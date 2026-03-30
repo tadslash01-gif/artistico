@@ -121,6 +121,24 @@ async function handleCheckoutComplete(session: any): Promise<void> {
 
     tx.update(productRef, updates);
   });
+
+  // Increment creator totalSales and recompute isVerified
+  const creatorRef = db.collection("users").doc(creatorId);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(creatorRef);
+    if (!snap.exists) return;
+    const data = snap.data()!;
+    const newSales = (data.totalSales || 0) + 1;
+    const updates: Record<string, any> = {
+      totalSales: newSales,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    // Auto-verify creators who have sold 10+ items
+    if (newSales >= 10 && !data.isVerified) {
+      updates.isVerified = true;
+    }
+    tx.update(creatorRef, updates);
+  });
 }
 
 async function handleAccountUpdated(account: any): Promise<void> {

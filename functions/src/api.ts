@@ -13,6 +13,8 @@ import {
   CreateReviewSchema,
   FulfillOrderSchema,
   CreateCreatorProfileSchema,
+  SaveProjectSchema,
+  FollowCreatorSchema,
 } from "@artistico/shared";
 
 // Simple router for Cloud Functions HTTP endpoint
@@ -47,7 +49,7 @@ const routes: Record<string, RouteHandler> = {
       res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
       return;
     }
-    const { title, description, images, materialsUsed, tags, category } = parsed.data;
+    const { title, description, images, materialsUsed, tags, category, creatorStory, useCase, difficulty, timeToBuild } = parsed.data;
     const slug =
       title
         .toLowerCase()
@@ -67,6 +69,12 @@ const routes: Record<string, RouteHandler> = {
       materialsUsed: materialsUsed || [],
       tags: tags || [],
       category,
+      creatorStory: creatorStory || null,
+      useCase: useCase || null,
+      difficulty: difficulty || null,
+      timeToBuild: timeToBuild || null,
+      savesCount: 0,
+      trendingScore: 0,
       status: "draft",
       productCount: 0,
       averageRating: 0,
@@ -115,6 +123,10 @@ const routes: Record<string, RouteHandler> = {
       res.status(404).json({ error: "Project not found" });
       return;
     }
+
+    // Fire-and-forget view count increment
+    const docRef = snapshot.docs[0].ref;
+    docRef.update({ viewCount: admin.firestore.FieldValue.increment(1) }).catch(() => {});
 
     res.json(snapshot.docs[0].data());
   },
@@ -174,25 +186,28 @@ const routes: Record<string, RouteHandler> = {
       res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
       return;
     }
-    const { projectId, title, description, type, price, images, digitalFileUrl, inventory, shippingRequired, shippingDetails, commissionDetails } = parsed.data;
+    const { projectId, title, description, type, price, category, images, digitalFileUrl, inventory, shippingRequired, shippingDetails, commissionDetails } = parsed.data;
 
-    // Verify the project belongs to this creator
-    const projectDoc = await db.collection("projects").doc(projectId).get();
-    if (!projectDoc.exists || projectDoc.data()?.creatorId !== req.user!.uid) {
-      res.status(403).json({ error: "Not authorized" });
-      return;
+    // If projectId is provided, verify the project belongs to this creator
+    if (projectId) {
+      const projectDoc = await db.collection("projects").doc(projectId).get();
+      if (!projectDoc.exists || projectDoc.data()?.creatorId !== req.user!.uid) {
+        res.status(403).json({ error: "Not authorized" });
+        return;
+      }
     }
 
     const productRef = db.collection("products").doc();
     const product = {
       productId: productRef.id,
-      projectId,
+      projectId: projectId || null,
       creatorId: req.user!.uid,
       title,
       description,
       type,
       price, // cents
       currency: "usd",
+      category: category || null,
       images: images || [],
       digitalFileUrl: digitalFileUrl || null,
       inventory: inventory ?? null,
@@ -206,14 +221,16 @@ const routes: Record<string, RouteHandler> = {
     };
     await productRef.set(product);
 
-    // Update project product count
-    await db
-      .collection("projects")
-      .doc(projectId)
-      .update({
-        productCount: admin.firestore.FieldValue.increment(1),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+    // Update project product count if linked to a project
+    if (projectId) {
+      await db
+        .collection("projects")
+        .doc(projectId)
+        .update({
+          productCount: admin.firestore.FieldValue.increment(1),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
 
     res.status(201).json({ productId: productRef.id });
   },
@@ -534,6 +551,10 @@ const routes: Record<string, RouteHandler> = {
       displayName: data.displayName,
       photoURL: data.photoURL,
       isCreator: data.isCreator,
+      followersCount: data.followersCount || 0,
+      followingCount: data.followingCount || 0,
+      totalSales: data.totalSales || 0,
+      isVerified: data.isVerified || false,
       creatorProfile: data.isCreator
         ? {
             bio: data.creatorProfile?.bio,
@@ -543,6 +564,202 @@ const routes: Record<string, RouteHandler> = {
           }
         : null,
     });
+  },
+
+  // ─── Saves ───────────────────────────────────────────
+  "POST /saves": async (req, res) => {
+    const parsed = SaveProjectSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
+      return;
+    }
+    const { projectId } = parsed.data;
+
+    // Check if already saved
+    const existing = await db
+      .collection("saves")
+      .where("userId", "==", req.user!.uid)
+      .where("projectId", "==", projectId)
+      .limit(1)
+      .get();
+    if (!existing.empty) {
+      res.status(409).json({ error: "Already saved" });
+      return;
+    }
+
+    const saveRef = db.collection("saves").doc();
+    await saveRef.set({
+      saveId: saveRef.id,
+      userId: req.user!.uid,
+      projectId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Increment project savesCount
+    await db
+      .collection("projects")
+      .doc(projectId)
+      .update({ savesCount: admin.firestore.FieldValue.increment(1) });
+
+    res.status(201).json({ saveId: saveRef.id });
+  },
+
+  "DELETE /saves/:projectId": async (req, res) => {
+    const projectId = req.params!.projectId;
+    const snapshot = await db
+      .collection("saves")
+      .where("userId", "==", req.user!.uid)
+      .where("projectId", "==", projectId)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      res.status(404).json({ error: "Save not found" });
+      return;
+    }
+
+    await snapshot.docs[0].ref.delete();
+    await db
+      .collection("projects")
+      .doc(projectId)
+      .update({ savesCount: admin.firestore.FieldValue.increment(-1) });
+
+    res.json({ success: true });
+  },
+
+  "GET /saves": async (req, res) => {
+    const snapshot = await db
+      .collection("saves")
+      .where("userId", "==", req.user!.uid)
+      .orderBy("createdAt", "desc")
+      .limit(50)
+      .get();
+
+    const saves = snapshot.docs.map((doc) => doc.data());
+
+    // Fetch projects for the saved items
+    if (saves.length > 0) {
+      const projectIds = saves.map((s) => s.projectId);
+      const projectDocs = await Promise.all(
+        projectIds.map((id) => db.collection("projects").doc(id).get())
+      );
+      const projects = projectDocs.filter((d) => d.exists).map((d) => d.data());
+      res.json({ saves, projects });
+    } else {
+      res.json({ saves: [], projects: [] });
+    }
+  },
+
+  // ─── Follows ──────────────────────────────────────────
+  "POST /follows": async (req, res) => {
+    const parsed = FollowCreatorSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
+      return;
+    }
+    const { followingId } = parsed.data;
+
+    if (followingId === req.user!.uid) {
+      res.status(400).json({ error: "Cannot follow yourself" });
+      return;
+    }
+
+    // Check if already following
+    const existing = await db
+      .collection("follows")
+      .where("followerId", "==", req.user!.uid)
+      .where("followingId", "==", followingId)
+      .limit(1)
+      .get();
+    if (!existing.empty) {
+      res.status(409).json({ error: "Already following" });
+      return;
+    }
+
+    const followRef = db.collection("follows").doc();
+    await followRef.set({
+      followId: followRef.id,
+      followerId: req.user!.uid,
+      followingId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Update follower/following counts
+    const batch = db.batch();
+    batch.update(db.collection("users").doc(followingId), {
+      followersCount: admin.firestore.FieldValue.increment(1),
+    });
+    batch.update(db.collection("users").doc(req.user!.uid), {
+      followingCount: admin.firestore.FieldValue.increment(1),
+    });
+    await batch.commit();
+
+    res.status(201).json({ followId: followRef.id });
+  },
+
+  "DELETE /follows/:followingId": async (req, res) => {
+    const followingId = req.params!.followingId;
+    const snapshot = await db
+      .collection("follows")
+      .where("followerId", "==", req.user!.uid)
+      .where("followingId", "==", followingId)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      res.status(404).json({ error: "Follow not found" });
+      return;
+    }
+
+    await snapshot.docs[0].ref.delete();
+
+    const batch = db.batch();
+    batch.update(db.collection("users").doc(followingId), {
+      followersCount: admin.firestore.FieldValue.increment(-1),
+    });
+    batch.update(db.collection("users").doc(req.user!.uid), {
+      followingCount: admin.firestore.FieldValue.increment(-1),
+    });
+    await batch.commit();
+
+    res.json({ success: true });
+  },
+
+  "GET /follows/status/:followingId": async (req, res) => {
+    const followingId = req.params!.followingId;
+    const snapshot = await db
+      .collection("follows")
+      .where("followerId", "==", req.user!.uid)
+      .where("followingId", "==", followingId)
+      .limit(1)
+      .get();
+    res.json({ isFollowing: !snapshot.empty });
+  },
+
+  // ─── Trending / Recommended ──────────────────────────
+  "GET /projects/trending": async (req, res) => {
+    const limitStr = req.query.limit;
+    const limit = Math.min(parseInt(limitStr as string) || 12, 50);
+    const snapshot = await db
+      .collection("projects")
+      .where("status", "==", "published")
+      .orderBy("trendingScore", "desc")
+      .limit(limit)
+      .get();
+    res.json({ projects: snapshot.docs.map((doc) => doc.data()) });
+  },
+
+  "GET /projects/recommended": async (req, res) => {
+    // Simple recommendation: recently published + high rated
+    const limitStr = req.query.limit;
+    const limit = Math.min(parseInt(limitStr as string) || 12, 50);
+    const snapshot = await db
+      .collection("projects")
+      .where("status", "==", "published")
+      .orderBy("averageRating", "desc")
+      .limit(limit)
+      .get();
+    res.json({ projects: snapshot.docs.map((doc) => doc.data()) });
   },
 };
 
@@ -592,6 +809,8 @@ function matchRoute(method: string, path: string): { handler: RouteHandler; para
 const PUBLIC_ROUTES = [
   "GET /projects",
   "GET /projects/:slug",
+  "GET /projects/trending",
+  "GET /projects/recommended",
   "GET /products",
   "GET /users/:uid",
   "GET /reviews",

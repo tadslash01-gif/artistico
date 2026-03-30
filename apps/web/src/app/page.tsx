@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { InlineBannerAd } from "@/components/ads/InlineBannerAd";
 import { ArtisticoLogo } from "@/components/branding/ArtisticoLogo";
+import TrendingProjects from "@/components/TrendingProjects";
 
 const CATEGORIES = [
   { name: "Woodworking", slug: "woodworking", emoji: "🪵" },
@@ -78,6 +79,19 @@ export default function Home() {
 
       {/* Ad */}
       <InlineBannerAd slot="INLINE_HOME" className="my-4" />
+
+      {/* Trending Projects */}
+      <section className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <h2 className="text-center text-2xl font-bold text-foreground">
+          Trending Projects
+        </h2>
+        <p className="mt-2 text-center text-muted-foreground">
+          See what creators are making right now
+        </p>
+        <div className="mt-10">
+          <TrendingProjects />
+        </div>
+      </section>
 
       {/* How It Works */}
       <section className="px-4 py-20 sm:px-6 lg:px-8">

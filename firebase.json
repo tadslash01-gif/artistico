@@ -12,17 +12,6 @@
       }
     }
   },
-  "hosting": {
-    "source": "apps/web",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "frameworksBackend": {
-      "region": "us-central1"
-    }
-  },
   "functions": [
     {
       "source": "functions-deploy",

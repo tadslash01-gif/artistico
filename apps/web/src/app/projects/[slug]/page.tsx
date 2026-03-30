@@ -7,6 +7,10 @@ import { apiFetch } from "@/lib/api";
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import InquiryForm from "@/components/InquiryForm";
 import ReviewForm from "@/components/ReviewForm";
+import SaveButton from "@/components/SaveButton";
+import FollowButton from "@/components/FollowButton";
+import DifficultyBadge from "@/components/DifficultyBadge";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import { SidebarAd } from "@/components/ads/SidebarAd";
 import { InlineBannerAd } from "@/components/ads/InlineBannerAd";
 import {
@@ -36,6 +40,11 @@ interface ProjectData {
   averageRating: number;
   reviewCount: number;
   viewCount: number;
+  savesCount: number;
+  creatorStory: string | null;
+  useCase: string | null;
+  difficulty: "beginner" | "intermediate" | "advanced" | null;
+  timeToBuild: string | null;
   createdAt: { seconds: number; nanoseconds: number } | null;
 }
 
@@ -289,9 +298,15 @@ export default function ProjectDetailPage({
           )}
 
           {/* Title & Description */}
-          <h1 className="mt-6 text-3xl font-bold text-foreground">
-            {project.title}
-          </h1>
+          <div className="mt-6 flex items-start justify-between gap-4">
+            <h1 className="text-3xl font-bold text-foreground">
+              {project.title}
+            </h1>
+            <SaveButton
+              projectId={project.projectId}
+              initialCount={project.savesCount || 0}
+            />
+          </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
             <span className="rounded-full bg-accent/50 px-3 py-0.5 font-medium">
@@ -300,6 +315,10 @@ export default function ProjectDetailPage({
                 .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
                 .join(" ")}
             </span>
+            <DifficultyBadge difficulty={project.difficulty} />
+            {project.timeToBuild && (
+              <span>⏱ {project.timeToBuild}</span>
+            )}
             {project.averageRating > 0 && (
               <span>
                 ★ {project.averageRating.toFixed(1)} ({project.reviewCount}{" "}
@@ -314,6 +333,30 @@ export default function ProjectDetailPage({
           <p className="mt-4 whitespace-pre-wrap leading-relaxed text-foreground">
             {project.description}
           </p>
+
+          {/* Creator Story */}
+          {project.creatorStory && (
+            <div className="mt-6 rounded-xl border border-border bg-amber-50/50 p-4">
+              <h3 className="text-sm font-semibold text-foreground">
+                The Story Behind This Project
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                {project.creatorStory}
+              </p>
+            </div>
+          )}
+
+          {/* Use Case */}
+          {project.useCase && (
+            <div className="mt-4">
+              <h3 className="text-sm font-semibold text-foreground">
+                Perfect For
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {project.useCase}
+              </p>
+            </div>
+          )}
 
           {/* Materials */}
           {project.materialsUsed.length > 0 && (
@@ -422,11 +465,11 @@ export default function ProjectDetailPage({
         <div className="space-y-6">
           {/* Creator Card */}
           {creator && (
-            <Link
-              href={`/creators/${project.creatorId}`}
-              className="block rounded-xl border border-border bg-white p-5 hover:border-primary/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
+            <div className="rounded-xl border border-border bg-white p-5">
+              <Link
+                href={`/creators/${project.creatorId}`}
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              >
                 {creator.photoURL ? (
                   <img
                     src={creator.photoURL}
@@ -439,8 +482,9 @@ export default function ProjectDetailPage({
                   </div>
                 )}
                 <div>
-                  <p className="font-semibold text-foreground">
+                  <p className="flex items-center gap-1 font-semibold text-foreground">
                     {creator.displayName}
+                    {(creator as any).isVerified && <VerifiedBadge />}
                   </p>
                   {creator.creatorProfile?.location && (
                     <p className="text-xs text-muted-foreground">
@@ -448,13 +492,16 @@ export default function ProjectDetailPage({
                     </p>
                   )}
                 </div>
-              </div>
+              </Link>
               {creator.creatorProfile?.bio && (
                 <p className="mt-3 text-sm text-muted-foreground line-clamp-3">
                   {creator.creatorProfile.bio}
                 </p>
               )}
-            </Link>
+              <div className="mt-3">
+                <FollowButton creatorId={project.creatorId} />
+              </div>
+            </div>
           )}
 
           {/* Contact Creator */}

@@ -75,12 +75,14 @@ export async function createCheckoutSession(
     },
     metadata: {
       productId: product.productId,
-      projectId: product.projectId,
+      projectId: product.projectId || "",
       buyerId: req.user!.uid,
       creatorId: product.creatorId,
     },
     success_url: `${req.headers.origin}/orders/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${req.headers.origin}/project/${product.projectId}`,
+    cancel_url: product.projectId
+      ? `${req.headers.origin}/project/${product.projectId}`
+      : `${req.headers.origin}/browse`,
   };
 
   // Collect shipping address for physical items

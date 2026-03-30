@@ -10,6 +10,7 @@ interface FileUploadProps {
   onChange: (url: string) => void;
   maxSizeMB?: number;
   label?: string;
+  customMetadata?: Record<string, string>;
 }
 
 export default function FileUpload({
@@ -18,6 +19,7 @@ export default function FileUpload({
   onChange,
   maxSizeMB = 100,
   label = "Digital File",
+  customMetadata,
 }: FileUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -43,7 +45,9 @@ export default function FileUpload({
         storage,
         `${storagePath}/${Date.now()}.${ext}`
       );
-      const task = uploadBytesResumable(storageRef, file);
+      const task = uploadBytesResumable(storageRef, file, {
+        ...(customMetadata ? { customMetadata } : {}),
+      });
 
       await new Promise<void>((resolve, reject) => {
         task.on(

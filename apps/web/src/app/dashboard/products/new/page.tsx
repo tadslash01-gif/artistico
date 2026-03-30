@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { apiFetch } from "@/lib/api";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { firestore, storage } from "@/lib/firebase";
+import { storage } from "@/lib/firebase";
 
 const CATEGORIES = [
   "woodworking",
@@ -22,35 +22,50 @@ const CATEGORIES = [
   "other",
 ];
 
-export default function NewProjectPage() {
+const PRODUCT_TYPES = [
+  { value: "physical", label: "Physical Item" },
+  { value: "digital", label: "Digital Download" },
+  { value: "template", label: "Template / Pattern" },
+  { value: "commission", label: "Commission" },
+];
+
+interface ProjectOption {
+  projectId: string;
+  title: string;
+}
+
+export default function NewProductPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [type, setType] = useState("physical");
+  const [price, setPrice] = useState("");
   const [category, setCategory] = useState("");
-  const [tags, setTags] = useState("");
-  const [materialsUsed, setMaterialsUsed] = useState("");
-  const [creatorStory, setCreatorStory] = useState("");
-  const [useCase, setUseCase] = useState("");
-  const [difficulty, setDifficulty] = useState("");
-  const [timeToBuild, setTimeToBuild] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [projectId, setProjectId] = useState("");
+  const [shippingRequired, setShippingRequired] = useState(false);
 
-  // Images (up to 5)
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // Fetch user's projects for the optional link
+  useEffect(() => {
+    if (!user) return;
+    apiFetch<{ projects: ProjectOption[] }>(`/projects?creatorId=${user.uid}`)
+      .then((data) => setProjects(data.projects))
+      .catch(() => {});
+  }, [user]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || !storage || !user) return;
 
     const remaining = 5 - images.length;
-    if (remaining <= 0) {
-      setError("Maximum 5 images allowed");
-      return;
-    }
+    if (remaining <= 0) return;
 
     const filesToUpload = Array.from(files).slice(0, remaining);
     setUploading(true);
@@ -69,7 +84,7 @@ export default function NewProjectPage() {
         const ext = file.name.split(".").pop();
         const storageRef = ref(
           storage,
-          `projects/temp-${user.uid}/images/${Date.now()}-${i}.${ext}`
+          `products/temp-${user.uid}/images/${Date.now()}-${i}.${ext}`
         );
         const task = uploadBytesResumable(storageRef, file, {
           contentType: file.type,
@@ -112,53 +127,36 @@ export default function NewProjectPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!user || !firestore) return;
+    if (!user) return;
+
+    const priceInCents = Math.round(parseFloat(price) * 100);
+    if (isNaN(priceInCents) || priceInCents < 50) {
+      setError("Price must be at least $0.50");
+      return;
+    }
 
     setError("");
     setLoading(true);
     try {
-      const projectRef = doc(collection(firestore, "projects"));
-      const slug =
-        title
-          .toLowerCase()
-          .replace(/[^\w\s-]/g, "")
-          .replace(/\s+/g, "-") +
-        "-" +
-        Date.now().toString(36);
-
-      await setDoc(projectRef, {
-        projectId: projectRef.id,
-        creatorId: user.uid,
+      const body: Record<string, unknown> = {
         title,
-        slug,
         description,
+        type,
+        price: priceInCents,
         images,
-        materialsUsed: materialsUsed
-          .split(",")
-          .map((m) => m.trim())
-          .filter(Boolean),
-        tags: tags
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean),
-        category,
-        creatorStory: creatorStory || null,
-        useCase: useCase || null,
-        difficulty: difficulty || null,
-        timeToBuild: timeToBuild || null,
-        savesCount: 0,
-        trendingScore: 0,
-        status: "published",
-        productCount: 0,
-        averageRating: 0,
-        reviewCount: 0,
-        viewCount: 0,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        shippingRequired,
+      };
+      if (projectId) body.projectId = projectId;
+      else body.projectId = null;
+      if (category) body.category = category;
+
+      const result = await apiFetch<{ productId: string }>("/products", {
+        method: "POST",
+        body: JSON.stringify(body),
       });
-      router.push(`/dashboard/projects/${projectRef.id}`);
+      router.push(`/dashboard/products/${result.productId}`);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to create project");
+      setError(err instanceof Error ? err.message : "Failed to create product");
     } finally {
       setLoading(false);
     }
@@ -166,10 +164,9 @@ export default function NewProjectPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-foreground">Create New Project</h1>
+      <h1 className="text-2xl font-bold text-foreground">Create New Product</h1>
       <p className="mt-2 text-muted-foreground">
-        Share a project you&apos;ve been working on. You can add products to it after
-        creating.
+        List a product for sale. You can optionally link it to an existing project.
       </p>
 
       {error && (
@@ -181,7 +178,7 @@ export default function NewProjectPage() {
       <form onSubmit={handleSubmit} className="mt-8 max-w-xl space-y-6">
         <div>
           <label htmlFor="title" className="block text-sm font-medium text-foreground">
-            Project Title
+            Product Title
           </label>
           <input
             id="title"
@@ -189,7 +186,7 @@ export default function NewProjectPage() {
             required
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="What did you make?"
+            placeholder="What are you selling?"
             className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
@@ -201,26 +198,62 @@ export default function NewProjectPage() {
           <textarea
             id="description"
             required
-            rows={6}
+            rows={4}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe your project, your process, what inspired you..."
+            placeholder="Describe your product in detail..."
             className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
 
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="type" className="block text-sm font-medium text-foreground">
+              Product Type
+            </label>
+            <select
+              id="type"
+              required
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              {PRODUCT_TYPES.map((pt) => (
+                <option key={pt.value} value={pt.value}>
+                  {pt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="price" className="block text-sm font-medium text-foreground">
+              Price (USD)
+            </label>
+            <input
+              id="price"
+              type="number"
+              required
+              min="0.50"
+              step="0.01"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="0.00"
+              className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
+
         <div>
           <label htmlFor="category" className="block text-sm font-medium text-foreground">
-            Category
+            Category <span className="text-muted-foreground font-normal">(optional)</span>
           </label>
           <select
             id="category"
-            required
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           >
-            <option value="">Select a category</option>
+            <option value="">No category</option>
             {CATEGORIES.map((cat) => (
               <option key={cat} value={cat}>
                 {cat
@@ -233,98 +266,43 @@ export default function NewProjectPage() {
         </div>
 
         <div>
-          <label htmlFor="tags" className="block text-sm font-medium text-foreground">
-            Tags
+          <label htmlFor="projectId" className="block text-sm font-medium text-foreground">
+            Link to Project <span className="text-muted-foreground font-normal">(optional)</span>
           </label>
-          <input
-            id="tags"
-            type="text"
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-            placeholder="handmade, beginner-friendly, custom (comma separated)"
+          <select
+            id="projectId"
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value)}
             className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
+          >
+            <option value="">Standalone product (no project)</option>
+            {projects.map((p) => (
+              <option key={p.projectId} value={p.projectId}>
+                {p.title}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div>
-          <label htmlFor="materials" className="block text-sm font-medium text-foreground">
-            Materials Used
-          </label>
-          <input
-            id="materials"
-            type="text"
-            value={materialsUsed}
-            onChange={(e) => setMaterialsUsed(e.target.value)}
-            placeholder="oak wood, epoxy resin, brass hardware (comma separated)"
-            className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
-
-        {/* Storytelling Fields */}
-        <div>
-          <label htmlFor="creatorStory" className="block text-sm font-medium text-foreground">
-            Your Story <span className="text-muted-foreground font-normal">(optional)</span>
-          </label>
-          <textarea
-            id="creatorStory"
-            rows={3}
-            value={creatorStory}
-            onChange={(e) => setCreatorStory(e.target.value)}
-            placeholder="What inspired you to create this? What's the story behind it?"
-            className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="useCase" className="block text-sm font-medium text-foreground">
-            Use Case <span className="text-muted-foreground font-normal">(optional)</span>
-          </label>
-          <input
-            id="useCase"
-            type="text"
-            value={useCase}
-            onChange={(e) => setUseCase(e.target.value)}
-            placeholder="Home decor, gift, personal use, etc."
-            className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="difficulty" className="block text-sm font-medium text-foreground">
-              Difficulty <span className="text-muted-foreground font-normal">(optional)</span>
-            </label>
-            <select
-              id="difficulty"
-              value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="">Not specified</option>
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-            </select>
-          </div>
-          <div>
-            <label htmlFor="timeToBuild" className="block text-sm font-medium text-foreground">
-              Time to Build <span className="text-muted-foreground font-normal">(optional)</span>
-            </label>
+        {type === "physical" && (
+          <div className="flex items-center gap-2">
             <input
-              id="timeToBuild"
-              type="text"
-              value={timeToBuild}
-              onChange={(e) => setTimeToBuild(e.target.value)}
-              placeholder="e.g. 3 hours, 2 weekends"
-              className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              id="shipping"
+              type="checkbox"
+              checked={shippingRequired}
+              onChange={(e) => setShippingRequired(e.target.checked)}
+              className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
             />
+            <label htmlFor="shipping" className="text-sm text-foreground">
+              Requires shipping
+            </label>
           </div>
-        </div>
+        )}
 
         {/* Images (up to 5) */}
         <div>
           <label className="block text-sm font-medium text-foreground">
-            Project Images (up to 5)
+            Product Images (up to 5)
           </label>
           <div className="mt-2 flex flex-wrap gap-3">
             {images.map((img, i) => (
@@ -356,9 +334,6 @@ export default function NewProjectPage() {
               </label>
             )}
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Max 10MB per image. JPEG, PNG, WebP. {images.length}/5 uploaded.
-          </p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -367,7 +342,7 @@ export default function NewProjectPage() {
             disabled={loading}
             className="rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
-            {loading ? "Creating..." : "Create Project"}
+            {loading ? "Creating..." : "Create Product"}
           </button>
           <button
             type="button"

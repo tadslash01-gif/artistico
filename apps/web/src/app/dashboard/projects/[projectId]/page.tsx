@@ -141,7 +141,9 @@ export default function ProjectEditPage({
           storage,
           `projects/${projectId}/images/${Date.now()}-${i}.${ext}`
         );
-        const task = uploadBytesResumable(storageRef, file);
+        const task = uploadBytesResumable(storageRef, file, {
+          customMetadata: { creatorId: user.uid },
+        });
 
         await new Promise<void>((resolve, reject) => {
           task.on(

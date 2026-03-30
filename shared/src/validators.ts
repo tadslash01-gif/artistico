@@ -47,6 +47,10 @@ export const CreateProjectSchema = z.object({
   materialsUsed: z.array(z.string().max(100)).max(30).optional(),
   tags: z.array(z.string().max(50)).max(20).optional(),
   category: z.enum(PROJECT_CATEGORIES),
+  creatorStory: z.string().min(10).max(500).nullable().optional(),
+  useCase: z.string().min(10).max(200).nullable().optional(),
+  difficulty: z.enum(["beginner", "intermediate", "advanced"]).nullable().optional(),
+  timeToBuild: z.string().max(100).nullable().optional(),
 });
 
 export const UpdateProjectSchema = z.object({
@@ -57,15 +61,20 @@ export const UpdateProjectSchema = z.object({
   tags: z.array(z.string().max(50)).max(20).optional(),
   category: z.enum(PROJECT_CATEGORIES).optional(),
   status: z.enum(["draft", "published", "archived"]).optional(),
+  creatorStory: z.string().min(10).max(500).nullable().optional(),
+  useCase: z.string().min(10).max(200).nullable().optional(),
+  difficulty: z.enum(["beginner", "intermediate", "advanced"]).nullable().optional(),
+  timeToBuild: z.string().max(100).nullable().optional(),
 });
 
 // Product schemas
 export const CreateProductSchema = z.object({
-  projectId: z.string().min(1),
+  projectId: z.string().min(1).nullable().optional(),
   title: z.string().min(3).max(200),
   description: z.string().min(10).max(5000),
   type: z.enum(["physical", "digital", "template", "commission"]),
   price: z.number().int().min(50), // minimum 50 cents
+  category: z.enum(PROJECT_CATEGORIES).optional(),
   images: z.array(z.string().url()).max(20).optional(),
   digitalFileUrl: z.string().url().nullable().optional(),
   inventory: z.number().int().min(0).nullable().optional(),
@@ -155,3 +164,15 @@ export type UpdateProductInput = z.infer<typeof UpdateProductSchema>;
 export type CreateReviewInput = z.infer<typeof CreateReviewSchema>;
 export type FulfillOrderInput = z.infer<typeof FulfillOrderSchema>;
 export type CreateCreatorProfileInput = z.infer<typeof CreateCreatorProfileSchema>;
+
+// Save / Follow schemas
+export const SaveProjectSchema = z.object({
+  projectId: z.string().min(1),
+});
+
+export const FollowCreatorSchema = z.object({
+  followingId: z.string().min(1),
+});
+
+export type SaveProjectInput = z.infer<typeof SaveProjectSchema>;
+export type FollowCreatorInput = z.infer<typeof FollowCreatorSchema>;
