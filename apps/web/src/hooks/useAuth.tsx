@@ -27,6 +27,14 @@ interface UserData {
   displayName: string | null;
   photoURL: string | null;
   isCreator: boolean;
+  creatorProfile?: {
+    bio?: string;
+    location?: string;
+    specialties?: string[];
+    socialLinks?: string[];
+    stripeAccountId?: string;
+    stripeOnboardingComplete?: boolean;
+  };
 }
 
 interface AuthContextType {
@@ -69,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             displayName: data.displayName || firebaseUser.displayName,
             photoURL: data.photoURL || firebaseUser.photoURL,
             isCreator: data.isCreator || false,
+            creatorProfile: data.creatorProfile || undefined,
           });
         } else {
           // First login — create user doc
