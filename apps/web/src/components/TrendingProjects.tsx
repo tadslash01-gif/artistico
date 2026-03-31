@@ -47,9 +47,9 @@ export default function TrendingProjects() {
 
   if (loading) {
     return (
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="flex gap-5 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-72 animate-pulse rounded-xl border border-border bg-muted" />
+          <div key={i} className="h-72 w-72 shrink-0 animate-pulse rounded-2xl bg-muted sm:w-80" />
         ))}
       </div>
     );
@@ -58,9 +58,11 @@ export default function TrendingProjects() {
   if (projects.length === 0) return null;
 
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="flex gap-5 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
       {projects.map((project) => (
-        <ProjectCard key={project.projectId} project={project} />
+        <div key={project.projectId} className="w-72 shrink-0 snap-start sm:w-80">
+          <ProjectCard project={project} />
+        </div>
       ))}
     </div>
   );

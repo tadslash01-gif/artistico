@@ -63,7 +63,13 @@ export default function BecomeCreatorPage() {
   };
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-12">
+    <div className="relative mx-auto max-w-lg px-4 py-12 overflow-hidden">
+      {/* Decorative warm blobs */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="absolute left-0 top-0 h-[350px] w-[350px] rounded-full bg-primary/[0.06] blur-[100px]" />
+        <div className="absolute right-0 bottom-0 h-[250px] w-[250px] rounded-full bg-accent/25 blur-[80px]" />
+      </div>
+      <div className="relative">
       <h1 className="text-2xl font-bold text-foreground">Become a Creator</h1>
       <p className="mt-2 text-muted-foreground">
         Set up your creator profile to start sharing projects and selling your work.
@@ -88,7 +94,7 @@ export default function BecomeCreatorPage() {
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             placeholder="Tell buyers about yourself and what you create..."
-            className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="mt-1 block w-full rounded-xl border border-[#d6cfc7] bg-[#f7f5f2] px-3 py-2.5 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/15 transition-all"
           />
         </div>
 
@@ -102,7 +108,7 @@ export default function BecomeCreatorPage() {
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             placeholder="City, State or Country"
-            className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="mt-1 block w-full rounded-xl border border-[#d6cfc7] bg-[#f7f5f2] px-3 py-2.5 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/15 transition-all"
           />
         </div>
 
@@ -116,7 +122,7 @@ export default function BecomeCreatorPage() {
             value={specialties}
             onChange={(e) => setSpecialties(e.target.value)}
             placeholder="woodworking, digital art, ceramics (comma separated)"
-            className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="mt-1 block w-full rounded-xl border border-[#d6cfc7] bg-[#f7f5f2] px-3 py-2.5 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/15 transition-all"
           />
           <p className="mt-1 text-xs text-muted-foreground">Separate with commas</p>
         </div>
@@ -124,11 +130,12 @@ export default function BecomeCreatorPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
         >
-          {loading ? "Setting up..." : "Create Creator Profile"}
+          {loading ? "Setting things up..." : "Let's Go"}
         </button>
       </form>
+      </div>
     </div>
   );
 }

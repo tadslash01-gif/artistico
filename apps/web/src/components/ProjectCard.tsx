@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import DifficultyBadge from "./DifficultyBadge";
@@ -24,8 +27,10 @@ interface ProjectCardProps {
 }
 
 export default function ProjectCard({ project }: ProjectCardProps) {
+  const [imgLoaded, setImgLoaded] = useState(false);
+
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-border bg-white shadow-sm hover:shadow-lg transition-all duration-200 hover:scale-[1.02]">
+    <div className="group relative overflow-hidden rounded-2xl bg-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)] transition-all duration-300 hover:scale-[1.02]">
       {/* Save overlay */}
       <div
         className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 sm:transition-opacity"
@@ -40,14 +45,15 @@ export default function ProjectCard({ project }: ProjectCardProps) {
 
       <Link href={`/projects/${project.slug}`}>
         {/* Image */}
-        <div className="aspect-[4/3] overflow-hidden bg-muted">
+        <div className="aspect-[3/2] overflow-hidden bg-muted rounded-t-2xl">
           {project.images?.[0] ? (
             <Image
               src={project.images[0]}
               alt={project.title}
               width={600}
-              height={450}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              height={400}
+              onLoad={() => setImgLoaded(true)}
+              className={`h-full w-full object-cover transition-all duration-500 group-hover:scale-105 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-4xl text-muted-foreground">

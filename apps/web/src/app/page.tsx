@@ -24,8 +24,13 @@ export default function Home() {
   return (
     <div className="flex flex-col">
       {/* Hero */}
-      <section className="px-4 py-24 text-center sm:py-36">
-        <div className="mx-auto flex flex-col items-center">
+      <section className="relative px-4 py-24 text-center sm:py-36 overflow-hidden">
+        {/* Warm glow blobs */}
+        <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+          <div className="absolute left-1/2 top-1/4 -translate-x-1/2 h-[500px] w-[500px] rounded-full bg-primary/[0.07] blur-[100px]" />
+          <div className="absolute right-1/4 top-1/3 h-[300px] w-[300px] rounded-full bg-accent/30 blur-[80px]" />
+        </div>
+        <div className="relative mx-auto flex flex-col items-center">
           <ArtisticoLogo size="lg" />
           <h1 className="mt-8 max-w-2xl text-3xl font-bold tracking-tight text-foreground sm:text-5xl">
             Sell what you make.
@@ -61,12 +66,12 @@ export default function Home() {
         <h2 className="text-center text-2xl font-bold text-foreground">
           Explore by Category
         </h2>
-        <div className="mt-10 grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+        <div className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {CATEGORIES.map((cat) => (
             <Link
               key={cat.slug}
               href={`/browse?category=${cat.slug}`}
-              className="group flex flex-col items-center gap-3 rounded-2xl bg-white p-6 transition-all hover:bg-muted/40 hover:scale-[1.03]"
+              className="group flex flex-col items-center gap-3 rounded-2xl bg-white/80 p-6 shadow-sm transition-all hover:shadow-md hover:bg-white hover:scale-[1.03]"
             >
               <span className="text-4xl transition-transform group-hover:scale-110">
                 {cat.emoji}
@@ -84,9 +89,12 @@ export default function Home() {
 
       {/* Trending Projects */}
       <section className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-        <h2 className="text-center text-2xl font-bold text-foreground">
-          Trending Projects
-        </h2>
+        <div className="flex items-center justify-center gap-2">
+          <span className="text-2xl" aria-hidden="true">🔥</span>
+          <h2 className="text-center text-2xl font-bold text-foreground">
+            Trending Projects
+          </h2>
+        </div>
         <p className="mt-2 text-center text-muted-foreground">
           See what creators are making right now
         </p>

@@ -49,8 +49,13 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-12rem)] items-center justify-center px-4">
-      <div className="w-full max-w-sm">
+    <div className="relative flex min-h-[calc(100vh-12rem)] items-center justify-center px-4 overflow-hidden">
+      {/* Decorative warm blobs */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="absolute right-1/3 top-1/4 h-[400px] w-[400px] rounded-full bg-primary/[0.06] blur-[100px]" />
+        <div className="absolute left-1/3 bottom-1/4 h-[300px] w-[300px] rounded-full bg-accent/25 blur-[80px]" />
+      </div>
+      <div className="relative w-full max-w-sm">
         <h1 className="text-2xl font-bold text-foreground">Log in to Artistico</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Don&apos;t have an account?{" "}
@@ -76,7 +81,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="mt-1 block w-full rounded-xl border border-[#d6cfc7] bg-[#f7f5f2] px-3 py-2.5 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/15 transition-all"
             />
           </div>
           <div>
@@ -89,7 +94,7 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="mt-1 block w-full rounded-xl border border-[#d6cfc7] bg-[#f7f5f2] px-3 py-2.5 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/15 transition-all"
             />
           </div>
           <div className="flex items-center justify-between">
@@ -103,7 +108,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
             {loading ? "Signing in..." : "Log In"}
           </button>
@@ -120,7 +125,7 @@ export default function LoginPage() {
           </div>
           <button
             onClick={handleGoogle}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-white px-4 py-2.5 text-sm font-medium text-foreground shadow-sm hover:bg-muted transition-colors"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d6cfc7] bg-white px-4 py-3 text-sm font-medium text-foreground shadow-sm hover:bg-muted transition-colors"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24">
               <path

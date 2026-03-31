@@ -75,7 +75,7 @@ export default function BrowsePage() {
           <div className="h-8 w-48 animate-pulse rounded bg-muted" />
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-72 animate-pulse rounded-xl border border-border bg-muted" />
+              <div key={i} className="h-72 animate-pulse rounded-2xl bg-[#e8e2da]" />
             ))}
           </div>
         </div>
@@ -101,7 +101,7 @@ function BrowseContent() {
   const [hasMore, setHasMore] = useState(false);
   const [searchInput, setSearchInput] = useState(searchQuery);
   const lastDocRef = useRef<DocumentSnapshot | null>(null);
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const buildUrl = useCallback(
     (overrides: Record<string, string>) => {
@@ -209,7 +209,7 @@ function BrowseContent() {
           placeholder="Search projects..."
           value={searchInput}
           onChange={(e) => handleSearchChange(e.target.value)}
-          className="w-full max-w-md rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+          className="w-full max-w-md rounded-xl border border-[#d6cfc7] bg-[#f7f5f2] px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/15 transition-all"
         />
       </div>
 
@@ -221,10 +221,10 @@ function BrowseContent() {
             <Link
               key={cat.slug}
               href={buildUrl({ category: cat.slug })}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
                 categoryFilter === cat.slug
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-white border border-border text-muted-foreground hover:border-primary/50"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-white/80 border border-border text-muted-foreground hover:bg-accent/30 hover:border-primary/40"
               }`}
             >
               {cat.name}
@@ -269,7 +269,7 @@ function BrowseContent() {
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="h-72 animate-pulse rounded-xl border border-border bg-muted"
+                className="h-72 animate-pulse rounded-2xl bg-[#e8e2da]"
               />
             ))}
           </div>
