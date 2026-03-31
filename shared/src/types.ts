@@ -63,6 +63,9 @@ export interface Project {
   timeToBuild: string | null;
   savesCount: number;
   trendingScore: number;
+  minPrice: number | null;
+  creatorName: string;
+  creatorAvatar: string | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -232,4 +235,20 @@ export interface RecentView {
   viewId: string;
   projectId: string;
   viewedAt: Timestamp;
+}
+
+// ─── Reports ─────────────────────────────────────────────
+
+export type ReportTargetType = "project" | "product" | "creator";
+export type ReportStatus = "pending" | "reviewed" | "resolved";
+
+export interface Report {
+  reportId: string;
+  reporterId: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  reason: string;
+  details: string;
+  status: ReportStatus;
+  createdAt: Timestamp;
 }

@@ -2,7 +2,9 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
+import RelatedProjects from "@/components/RelatedProjects";
 import { apiFetch } from "@/lib/api";
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import InquiryForm from "@/components/InquiryForm";
@@ -262,11 +264,14 @@ export default function ProjectDetailPage({
           {/* Image Gallery */}
           {project.images.length > 0 ? (
             <div>
-              <div className="aspect-[4/3] overflow-hidden rounded-xl bg-muted">
-                <img
+              <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
+                <Image
                   src={project.images[selectedImage]}
                   alt={project.title}
-                  className="h-full w-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 1024px) 100vw, 66vw"
+                  priority
                 />
               </div>
               {project.images.length > 1 && (
@@ -275,16 +280,19 @@ export default function ProjectDetailPage({
                     <button
                       key={i}
                       onClick={() => setSelectedImage(i)}
-                      className={`h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
+                      aria-label={`View image ${i + 1}`}
+                      className={`relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
                         i === selectedImage
                           ? "border-primary"
                           : "border-border hover:border-primary/50"
                       }`}
                     >
-                      <img
+                      <Image
                         src={img}
                         alt=""
-                        className="h-full w-full object-cover"
+                        fill
+                        className="object-cover"
+                        sizes="64px"
                       />
                     </button>
                   ))}
@@ -459,6 +467,9 @@ export default function ProjectDetailPage({
           </div>
           {/* Ad below reviews */}
           <InlineBannerAd slot="INLINE_PROJECT" className="mt-8" />
+
+          {/* Related Projects */}
+          <RelatedProjects category={project.category} excludeProjectId={project.projectId} />
         </div>
 
         {/* Right Column: Products + Creator */}
@@ -471,10 +482,12 @@ export default function ProjectDetailPage({
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity"
               >
                 {creator.photoURL ? (
-                  <img
+                  <Image
                     src={creator.photoURL}
                     alt={creator.displayName}
-                    className="h-10 w-10 rounded-full object-cover"
+                    width={40}
+                    height={40}
+                    className="rounded-full object-cover"
                   />
                 ) : (
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
@@ -546,11 +559,13 @@ export default function ProjectDetailPage({
                     className="rounded-xl border border-border bg-white p-4"
                   >
                     {product.images?.[0] && (
-                      <div className="mb-3 aspect-[3/2] overflow-hidden rounded-lg bg-muted">
-                        <img
+                      <div className="relative mb-3 aspect-[3/2] overflow-hidden rounded-lg bg-muted">
+                        <Image
                           src={product.images[0]}
                           alt={product.title}
-                          className="h-full w-full object-cover"
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 1024px) 100vw, 33vw"
                         />
                       </div>
                     )}

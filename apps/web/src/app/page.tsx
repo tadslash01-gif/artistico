@@ -2,6 +2,8 @@ import Link from "next/link";
 import { InlineBannerAd } from "@/components/ads/InlineBannerAd";
 import { ArtisticoLogo } from "@/components/branding/ArtisticoLogo";
 import TrendingProjects from "@/components/TrendingProjects";
+import NewCreators from "@/components/NewCreators";
+import RecentlyAdded from "@/components/RecentlyAdded";
 
 const CATEGORIES = [
   { name: "Woodworking", slug: "woodworking", emoji: "🪵" },
@@ -90,6 +92,48 @@ export default function Home() {
         </p>
         <div className="mt-10">
           <TrendingProjects />
+        </div>
+        <div className="mt-6 text-center">
+          <Link
+            href="/browse?sort=trending"
+            className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            See all trending →
+          </Link>
+        </div>
+      </section>
+
+      {/* New Creators */}
+      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <h2 className="text-center text-2xl font-bold text-foreground">
+          New Creators
+        </h2>
+        <p className="mt-2 text-center text-muted-foreground">
+          Discover fresh talent joining the community
+        </p>
+        <div className="mt-10">
+          <NewCreators />
+        </div>
+      </section>
+
+      {/* Recently Added */}
+      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <h2 className="text-center text-2xl font-bold text-foreground">
+          Recently Added
+        </h2>
+        <p className="mt-2 text-center text-muted-foreground">
+          The latest projects from our creators
+        </p>
+        <div className="mt-10">
+          <RecentlyAdded />
+        </div>
+        <div className="mt-6 text-center">
+          <Link
+            href="/browse"
+            className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            Browse all projects →
+          </Link>
         </div>
       </section>
 

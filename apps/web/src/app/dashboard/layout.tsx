@@ -59,6 +59,24 @@ export default function DashboardLayout({
               </Link>
             ))}
           </div>
+
+          {/* Become a Creator CTA for non-creators */}
+          {userData && !userData.isCreator && (
+            <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+              <p className="text-sm font-semibold text-foreground">
+                Ready to sell?
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Set up your creator profile and start sharing your craft.
+              </p>
+              <Link
+                href="/dashboard/profile"
+                className="mt-3 block rounded-lg bg-primary px-3 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                Become a Creator
+              </Link>
+            </div>
+          )}
         </nav>
 
         {/* Content */}

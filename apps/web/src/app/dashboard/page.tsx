@@ -6,6 +6,7 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 import { useAuth } from "@/hooks/useAuth";
 import { firestore } from "@/lib/firebase";
 import { formatCurrency } from "@/lib/utils";
+import OnboardingChecklist from "@/components/OnboardingChecklist";
 
 export default function DashboardPage() {
   const { user, userData } = useAuth();
@@ -62,6 +63,11 @@ export default function DashboardPage() {
       <p className="mt-2 text-muted-foreground">
         Manage your projects, products, and orders.
       </p>
+
+      {/* Onboarding Checklist */}
+      <div className="mt-6">
+        <OnboardingChecklist />
+      </div>
 
       {/* Quick Actions */}
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

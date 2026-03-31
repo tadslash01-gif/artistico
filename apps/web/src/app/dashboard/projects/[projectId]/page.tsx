@@ -136,12 +136,18 @@ export default function ProjectEditPage({
           continue;
         }
 
+        if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+          setError(`"${file.name}" must be a JPEG, PNG, or WebP image`);
+          continue;
+        }
+
         const ext = file.name.split(".").pop();
         const storageRef = ref(
           storage,
           `projects/${projectId}/images/${Date.now()}-${i}.${ext}`
         );
         const task = uploadBytesResumable(storageRef, file, {
+          contentType: file.type,
           customMetadata: { creatorId: user.uid },
         });
 

@@ -1,5 +1,8 @@
 import Link from "next/link";
+import Image from "next/image";
 import DifficultyBadge from "./DifficultyBadge";
+import SaveButton from "./SaveButton";
+import { formatCurrency } from "@/lib/utils";
 
 interface ProjectCardProps {
   project: {
@@ -14,49 +17,98 @@ interface ProjectCardProps {
     averageRating: number;
     reviewCount: number;
     savesCount?: number;
+    minPrice?: number | null;
+    creatorName?: string;
+    creatorAvatar?: string | null;
   };
 }
 
 export default function ProjectCard({ project }: ProjectCardProps) {
   return (
-    <Link
-      href={`/projects/${project.slug}`}
-      className="group overflow-hidden rounded-xl border border-border bg-white shadow-sm hover:shadow-md transition-all"
-    >
-      {/* Image */}
-      <div className="aspect-[4/3] bg-muted">
-        {project.images?.[0] && (
-          <img
-            src={project.images[0]}
-            alt={project.title}
-            className="h-full w-full object-cover"
-          />
-        )}
+    <div className="group relative overflow-hidden rounded-xl border border-border bg-white shadow-sm hover:shadow-lg transition-all duration-200 hover:scale-[1.02]">
+      {/* Save overlay */}
+      <div
+        className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 sm:transition-opacity"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        <SaveButton
+          projectId={project.projectId}
+          initialCount={project.savesCount ?? 0}
+        />
       </div>
-      {/* Info */}
-      <div className="p-4">
-        <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
-          {project.title}
-        </h3>
-        <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-          {project.description}
-        </p>
-        <div className="mt-3 flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-          <span className="rounded-full bg-accent/50 px-2 py-0.5">
-            {project.category}
-          </span>
-          <DifficultyBadge difficulty={project.difficulty} />
-          {project.productCount > 0 && (
-            <span>{project.productCount} products</span>
-          )}
-          {project.averageRating > 0 && (
-            <span>★ {project.averageRating.toFixed(1)}</span>
-          )}
-          {(project.savesCount ?? 0) > 0 && (
-            <span>♡ {project.savesCount}</span>
+
+      <Link href={`/projects/${project.slug}`}>
+        {/* Image */}
+        <div className="aspect-[4/3] overflow-hidden bg-muted">
+          {project.images?.[0] ? (
+            <Image
+              src={project.images[0]}
+              alt={project.title}
+              width={600}
+              height={450}
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-4xl text-muted-foreground">
+              🎨
+            </div>
           )}
         </div>
-      </div>
-    </Link>
+        {/* Info */}
+        <div className="p-4">
+          <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+            {project.title}
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+            {project.description}
+          </p>
+
+          {/* Creator attribution */}
+          {project.creatorName && (
+            <div className="mt-2 flex items-center gap-2">
+              {project.creatorAvatar ? (
+                <Image
+                  src={project.creatorAvatar}
+                  alt={project.creatorName}
+                  width={20}
+                  height={20}
+                  className="rounded-full object-cover"
+                />
+              ) : (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                  {project.creatorName[0]?.toUpperCase()}
+                </span>
+              )}
+              <span className="text-xs text-muted-foreground">
+                {project.creatorName}
+              </span>
+            </div>
+          )}
+
+          <div className="mt-3 flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+            <span className="rounded-full bg-accent/50 px-2 py-0.5">
+              {project.category}
+            </span>
+            <DifficultyBadge difficulty={project.difficulty} />
+            {project.minPrice != null && project.minPrice > 0 && (
+              <span className="font-semibold text-foreground">
+                From {formatCurrency(project.minPrice)}
+              </span>
+            )}
+            {project.averageRating > 0 && (
+              <span aria-label={`${project.averageRating.toFixed(1)} stars`}>
+                ★ {project.averageRating.toFixed(1)}
+              </span>
+            )}
+            {(project.savesCount ?? 0) > 0 && (
+              <span aria-label={`${project.savesCount} saves`}>
+                ♡ {project.savesCount}
+              </span>
+            )}
+          </div>
+        </div>
+      </Link>
+    </div>
   );
 }

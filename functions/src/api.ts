@@ -88,7 +88,7 @@ const routes: Record<string, RouteHandler> = {
   },
 
   "GET /projects": async (req, res) => {
-    const { category, status, creatorId, limit: limitStr, startAfter } = req.query;
+    const { category, status, creatorId, difficulty, sort, search, limit: limitStr, startAfter } = req.query;
     let query: admin.firestore.Query = db.collection("projects");
 
     if (category) query = query.where("category", "==", category);
@@ -101,7 +101,21 @@ const routes: Record<string, RouteHandler> = {
       query = query.where("status", "==", status);
     }
 
-    query = query.orderBy("createdAt", "desc");
+    // Difficulty filter
+    if (difficulty && ["beginner", "intermediate", "advanced"].includes(difficulty as string)) {
+      query = query.where("difficulty", "==", difficulty);
+    }
+
+    // Sort order
+    const sortBy = sort as string;
+    if (sortBy === "trending") {
+      query = query.orderBy("trendingScore", "desc");
+    } else if (sortBy === "rating") {
+      query = query.orderBy("averageRating", "desc");
+    } else {
+      query = query.orderBy("createdAt", "desc");
+    }
+
     const limit = Math.min(parseInt(limitStr as string) || 20, 50);
     query = query.limit(limit);
 
@@ -111,8 +125,17 @@ const routes: Record<string, RouteHandler> = {
     }
 
     const snapshot = await query.get();
-    const projects = snapshot.docs.map((doc) => doc.data());
-    res.json({ projects, hasMore: projects.length === limit });
+    let projects = snapshot.docs.map((doc) => doc.data());
+
+    // Client-side search filter (prefix match on title) — lightweight until Algolia
+    if (search) {
+      const searchLower = (search as string).toLowerCase();
+      projects = projects.filter((p: any) =>
+        p.title?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    res.json({ projects, hasMore: snapshot.docs.length === limit });
   },
 
   "GET /projects/:slug": async (req, res) => {
@@ -770,6 +793,7 @@ const ALLOWED_ORIGINS = [
   "https://artistico-78f75.web.app",
   "https://artistico-78f75.firebaseapp.com",
   "https://artistico.redphantomops.com",
+  "https://artistico--artistico-78f75.us-central1.hosted.app",
   process.env.NODE_ENV !== "production" ? "http://localhost:3000" : "",
 ].filter(Boolean);
 

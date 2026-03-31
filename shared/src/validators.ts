@@ -176,3 +176,20 @@ export const FollowCreatorSchema = z.object({
 
 export type SaveProjectInput = z.infer<typeof SaveProjectSchema>;
 export type FollowCreatorInput = z.infer<typeof FollowCreatorSchema>;
+
+// Report schema
+export const CreateReportSchema = z.object({
+  targetType: z.enum(["project", "product", "user", "review"]),
+  targetId: z.string().min(1),
+  reason: z.enum([
+    "spam",
+    "inappropriate",
+    "copyright",
+    "fraud",
+    "harassment",
+    "other",
+  ]),
+  description: z.string().min(10).max(2000),
+});
+
+export type CreateReportInput = z.infer<typeof CreateReportSchema>;

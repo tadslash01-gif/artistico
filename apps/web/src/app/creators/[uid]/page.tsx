@@ -2,10 +2,13 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { doc, getDoc, collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import { useAuth } from "@/hooks/useAuth";
 import InquiryForm from "@/components/InquiryForm";
+import FollowButton from "@/components/FollowButton";
+import ProjectCard from "@/components/ProjectCard";
 import { InlineBannerAd } from "@/components/ads/InlineBannerAd";
 
 interface CreatorData {
@@ -13,6 +16,10 @@ interface CreatorData {
   displayName: string;
   photoURL: string | null;
   isCreator: boolean;
+  followersCount: number;
+  followingCount: number;
+  totalSales: number;
+  isVerified: boolean;
   creatorProfile?: {
     bio: string;
     location: string;
@@ -29,9 +36,14 @@ interface ProjectData {
   description: string;
   images: string[];
   category: string;
+  difficulty?: "beginner" | "intermediate" | "advanced" | null;
   productCount: number;
   averageRating: number;
   reviewCount: number;
+  savesCount?: number;
+  minPrice?: number | null;
+  creatorName?: string;
+  creatorAvatar?: string | null;
 }
 
 export default function CreatorProfilePage({
@@ -119,9 +131,11 @@ export default function CreatorProfilePage({
       <div className="rounded-xl border border-border bg-white p-6 sm:p-8">
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
           {creator.photoURL ? (
-            <img
+            <Image
               src={creator.photoURL}
               alt={creator.displayName}
+              width={80}
+              height={80}
               className="h-20 w-20 rounded-full object-cover"
             />
           ) : (
@@ -130,7 +144,7 @@ export default function CreatorProfilePage({
             </div>
           )}
 
-          <div className="text-center sm:text-left">
+          <div className="flex-1 text-center sm:text-left">
             <h1 className="text-2xl font-bold text-foreground">
               {creator.displayName}
             </h1>
@@ -144,6 +158,26 @@ export default function CreatorProfilePage({
                 Creator
               </span>
             )}
+
+            {/* Stats bar */}
+            <div className="mt-3 flex items-center justify-center gap-4 text-sm text-muted-foreground sm:justify-start">
+              <span>
+                <strong className="text-foreground">{creator.followersCount || 0}</strong> followers
+              </span>
+              <span>
+                <strong className="text-foreground">{projects.length}</strong> projects
+              </span>
+              {(creator.totalSales || 0) > 0 && (
+                <span>
+                  <strong className="text-foreground">{creator.totalSales}</strong> sales
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Follow button */}
+          <div className="shrink-0">
+            <FollowButton creatorId={uid} />
           </div>
         </div>
 
@@ -225,44 +259,7 @@ export default function CreatorProfilePage({
         ) : (
           <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {projects.map((project) => (
-              <Link
-                key={project.projectId}
-                href={`/projects/${project.slug}`}
-                className="group overflow-hidden rounded-xl border border-border bg-white shadow-sm hover:shadow-md transition-all"
-              >
-                <div className="aspect-[4/3] bg-muted">
-                  {project.images?.[0] ? (
-                    <img
-                      src={project.images[0]}
-                      alt={project.title}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-3xl">
-                      🎨
-                    </div>
-                  )}
-                </div>
-                <div className="p-4">
-                  <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
-                    {project.title}
-                  </h3>
-                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                    {project.description}
-                  </p>
-                  <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="rounded-full bg-accent/50 px-2 py-0.5">
-                      {project.category}
-                    </span>
-                    {project.productCount > 0 && (
-                      <span>{project.productCount} products</span>
-                    )}
-                    {project.averageRating > 0 && (
-                      <span>★ {project.averageRating.toFixed(1)}</span>
-                    )}
-                  </div>
-                </div>
-              </Link>
+              <ProjectCard key={project.projectId} project={project} />
             ))}
           </div>
         )}

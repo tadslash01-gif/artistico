@@ -9,7 +9,7 @@ let _stripe: Stripe | null = null;
 
 export function getStripe(): Stripe {
   if (!_stripe) {
-    _stripe = new Stripe(stripeSecretKey.value(), {
+    _stripe = new Stripe(stripeSecretKey.value().trim(), {
       apiVersion: "2025-02-24.acacia",
     });
   }

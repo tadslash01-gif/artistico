@@ -23,12 +23,16 @@ interface ProjectData {
   averageRating: number;
   reviewCount: number;
   savesCount?: number;
+  minPrice?: number | null;
+  creatorName?: string;
+  creatorAvatar?: string | null;
 }
 
 export default function SavedProjectsPage() {
   const { user } = useAuth();
   const [projects, setProjects] = useState<ProjectData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -37,6 +41,22 @@ export default function SavedProjectsPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [user]);
+
+  const handleUnsave = async (projectId: string) => {
+    setRemovingId(projectId);
+    // Optimistic removal
+    setProjects((prev) => prev.filter((p) => p.projectId !== projectId));
+    try {
+      await apiFetch(`/saves/${projectId}`, { method: "DELETE" });
+    } catch {
+      // Revert on failure — refetch
+      apiFetch<{ saves: SaveData[]; projects: ProjectData[] }>("/saves")
+        .then((data) => setProjects(data.projects))
+        .catch(console.error);
+    } finally {
+      setRemovingId(null);
+    }
+  };
 
   return (
     <div>
@@ -61,7 +81,17 @@ export default function SavedProjectsPage() {
       ) : (
         <div className="mt-8 grid gap-6 sm:grid-cols-2">
           {projects.map((project) => (
-            <ProjectCard key={project.projectId} project={project} />
+            <div key={project.projectId} className="relative">
+              <ProjectCard project={project} />
+              <button
+                onClick={() => handleUnsave(project.projectId)}
+                disabled={removingId === project.projectId}
+                className="absolute right-2 top-2 z-10 rounded-full bg-white/90 p-1.5 text-xs font-medium text-red-600 shadow-sm hover:bg-red-50 transition-colors disabled:opacity-50"
+                title="Remove from saved"
+              >
+                ✕
+              </button>
+            </div>
           ))}
         </div>
       )}
