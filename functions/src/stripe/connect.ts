@@ -1,7 +1,45 @@
 import { getStripe } from "./client";
 import { db } from "../admin";
 
-const DEFAULT_ORIGIN = "https://artistico.redphantomops.com";
+const DEFAULT_ORIGIN = "https://artistico--artistico-78f75.us-central1.hosted.app";
+
+/**
+ * Helper: create a new Stripe Express account and persist the ID to Firestore.
+ * Returns the new account ID.
+ */
+async function createAndPersistStripeAccount(
+  stripe: ReturnType<typeof getStripe>,
+  uid: string,
+  userData: FirebaseFirestore.DocumentData | undefined
+): Promise<string> {
+  const account = await stripe.accounts.create({
+    type: "express",
+    metadata: { firebaseUid: uid },
+  });
+  const accountId = account.id;
+
+  // If creatorProfile is null/missing, set the entire object instead of
+  // using dot-notation (Firestore rejects dot-notation updates into null).
+  if (!userData?.creatorProfile) {
+    await db.collection("users").doc(uid).update({
+      isCreator: true,
+      creatorProfile: {
+        bio: "",
+        location: "",
+        specialties: [],
+        socialLinks: [],
+        stripeAccountId: accountId,
+        stripeOnboardingComplete: false,
+      },
+    });
+  } else {
+    await db.collection("users").doc(uid).update({
+      "creatorProfile.stripeAccountId": accountId,
+    });
+  }
+
+  return accountId;
+}
 
 export async function createStripeConnectLink(
   req: { headers: Record<string, any>; user?: { uid: string } },
@@ -20,41 +58,31 @@ export async function createStripeConnectLink(
 
     let accountId = userData?.creatorProfile?.stripeAccountId;
 
-    // Create a new Stripe Connect Express account if none exists
-    if (!accountId) {
-      const account = await stripe.accounts.create({
-        type: "express",
-        metadata: { firebaseUid: uid },
-      });
-      accountId = account.id;
-
-      // If creatorProfile is null/missing, set the entire object instead of
-      // using dot-notation (Firestore rejects dot-notation updates into null).
-      if (!userData?.creatorProfile) {
-        await db.collection("users").doc(uid).update({
-          isCreator: true,
-          creatorProfile: {
-            bio: "",
-            location: "",
-            specialties: [],
-            socialLinks: [],
-            stripeAccountId: accountId,
-            stripeOnboardingComplete: false,
-          },
+    if (accountId) {
+      // Validate that the stored Stripe account still exists.
+      // If the account was deleted on Stripe's side, create a fresh one.
+      try {
+        await stripe.accounts.retrieve(accountId);
+      } catch (retrieveError: any) {
+        console.warn("Stored Stripe account is invalid, creating a new one:", {
+          uid,
+          oldAccountId: accountId,
+          error: retrieveError.message,
         });
-      } else {
-        await db.collection("users").doc(uid).update({
-          "creatorProfile.stripeAccountId": accountId,
-        });
+        accountId = await createAndPersistStripeAccount(stripe, uid, userData);
       }
+    } else {
+      // No account exists yet — create one
+      accountId = await createAndPersistStripeAccount(stripe, uid, userData);
     }
 
     // Use origin header with a safe fallback for environments where it's absent
     const origin = req.headers.origin || req.headers.referer?.replace(/\/[^/]*$/, "") || DEFAULT_ORIGIN;
+    console.log("Stripe onboarding origin:", origin);
 
     // Create an account link for onboarding
     const accountLink = await stripe.accountLinks.create({
-      account: accountId!,
+      account: accountId,
       refresh_url: `${origin}/dashboard/settings?stripe=refresh`,
       return_url: `${origin}/dashboard/settings?stripe=complete`,
       type: "account_onboarding",
@@ -73,7 +101,12 @@ export async function createStripeConnectLink(
     if (error.type === "StripeAuthenticationError") {
       res.status(500).json({ error: "Payment service configuration error" });
     } else if (error.type === "StripeInvalidRequestError") {
-      res.status(400).json({ error: "Invalid payment setup request" });
+      // Surface Stripe's actual message so the platform owner can act on it
+      // (e.g. "Please review the responsibilities of managing losses…")
+      const msg = error.message?.includes("platform-profile")
+        ? "Stripe requires the platform owner to complete the Connect platform profile. Please visit the Stripe Dashboard → Settings → Connect → Platform profile to accept the required agreements."
+        : error.message || "Invalid payment setup request";
+      res.status(400).json({ error: msg, code: error.code });
     } else {
       res.status(500).json({ error: "Failed to start Stripe onboarding" });
     }
