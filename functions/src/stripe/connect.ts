@@ -32,7 +32,12 @@ export async function createStripeConnectLink(
       // using dot-notation (Firestore rejects dot-notation updates into null).
       if (!userData?.creatorProfile) {
         await db.collection("users").doc(uid).update({
+          isCreator: true,
           creatorProfile: {
+            bio: "",
+            location: "",
+            specialties: [],
+            socialLinks: [],
             stripeAccountId: accountId,
             stripeOnboardingComplete: false,
           },

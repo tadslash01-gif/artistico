@@ -16,16 +16,6 @@ export default function SettingsPage() {
   const handleStripeOnboarding = async () => {
     setStripeLoading(true);
     try {
-      // Ensure creator profile exists before requesting Stripe onboarding.
-      // Users without a profile have creatorProfile: null in Firestore, which
-      // would crash dot-notation updates on the backend.
-      if (!userData?.creatorProfile) {
-        await apiFetch("/users/creator-profile", {
-          method: "POST",
-          body: JSON.stringify({ bio: "", specialties: [], socialLinks: [] }),
-        });
-      }
-
       const { url } = await apiFetch<{ url: string }>("/users/stripe-onboarding", {
         method: "POST",
       });
