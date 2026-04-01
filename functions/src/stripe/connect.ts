@@ -3,42 +3,30 @@ import { db } from "../admin";
 
 const DEFAULT_ORIGIN = "https://artistico--artistico-78f75.us-central1.hosted.app";
 
+// Allowed origins for Stripe onboarding redirect URLs (H2 fix)
+const ALLOWED_ONBOARDING_ORIGINS = [
+  "https://artistico-78f75.web.app",
+  "https://artistico-78f75.firebaseapp.com",
+  "https://artistico.redphantomops.com",
+  "https://artistico--artistico-78f75.us-central1.hosted.app",
+];
+
 /**
  * Helper: create a new Stripe Express account and persist the ID to Firestore.
  * Returns the new account ID.
+ *
+ * IMPORTANT: This must be called inside a Firestore transaction to prevent
+ * duplicate Stripe account creation from concurrent requests (C2 fix).
  */
-async function createAndPersistStripeAccount(
+async function createStripeAccountAndGetId(
   stripe: ReturnType<typeof getStripe>,
-  uid: string,
-  userData: FirebaseFirestore.DocumentData | undefined
+  uid: string
 ): Promise<string> {
   const account = await stripe.accounts.create({
     type: "express",
     metadata: { firebaseUid: uid },
   });
-  const accountId = account.id;
-
-  // If creatorProfile is null/missing, set the entire object instead of
-  // using dot-notation (Firestore rejects dot-notation updates into null).
-  if (!userData?.creatorProfile) {
-    await db.collection("users").doc(uid).update({
-      isCreator: true,
-      creatorProfile: {
-        bio: "",
-        location: "",
-        specialties: [],
-        socialLinks: [],
-        stripeAccountId: accountId,
-        stripeOnboardingComplete: false,
-      },
-    });
-  } else {
-    await db.collection("users").doc(uid).update({
-      "creatorProfile.stripeAccountId": accountId,
-    });
-  }
-
-  return accountId;
+  return account.id;
 }
 
 export async function createStripeConnectLink(
@@ -53,31 +41,74 @@ export async function createStripeConnectLink(
   try {
     const stripe = getStripe();
     const uid = req.user.uid;
-    const userDoc = await db.collection("users").doc(uid).get();
-    const userData = userDoc.data();
+    const userRef = db.collection("users").doc(uid);
 
-    let accountId = userData?.creatorProfile?.stripeAccountId;
+    // Use a transaction to prevent duplicate Stripe account creation (C2 fix).
+    // If two requests arrive simultaneously, only the first creates an account;
+    // the second will see the existing accountId after the transaction retries.
+    let accountId = await db.runTransaction(async (tx) => {
+      const userSnap = await tx.get(userRef);
+      const userData = userSnap.data();
+      const existingAccountId = userData?.creatorProfile?.stripeAccountId;
 
-    if (accountId) {
-      // Validate that the stored Stripe account still exists.
-      // If the account was deleted on Stripe's side, create a fresh one.
-      try {
-        await stripe.accounts.retrieve(accountId);
-      } catch (retrieveError: any) {
-        console.warn("Stored Stripe account is invalid, creating a new one:", {
-          uid,
-          oldAccountId: accountId,
-          error: retrieveError.message,
-        });
-        accountId = await createAndPersistStripeAccount(stripe, uid, userData);
+      if (existingAccountId) {
+        // Account already exists — validate it outside the transaction
+        return existingAccountId as string;
       }
-    } else {
-      // No account exists yet — create one
-      accountId = await createAndPersistStripeAccount(stripe, uid, userData);
+
+      // No account yet — create one (Stripe API call is outside transaction scope
+      // but we hold the Firestore lock via the transaction write below)
+      const newAccountId = await createStripeAccountAndGetId(stripe, uid);
+
+      // Persist atomically. If creatorProfile is null/missing, set the entire object.
+      if (!userData?.creatorProfile) {
+        tx.update(userRef, {
+          isCreator: true,
+          creatorProfile: {
+            bio: "",
+            location: "",
+            specialties: [],
+            socialLinks: [],
+            stripeAccountId: newAccountId,
+            stripeOnboardingComplete: false,
+          },
+        });
+      } else {
+        tx.update(userRef, {
+          "creatorProfile.stripeAccountId": newAccountId,
+        });
+      }
+
+      return newAccountId;
+    });
+
+    // Validate that a stored Stripe account still exists on Stripe's side.
+    // If it was deleted externally, create a fresh one in a new transaction.
+    try {
+      await stripe.accounts.retrieve(accountId);
+    } catch (retrieveError: any) {
+      console.warn("Stored Stripe account is invalid, creating a new one:", {
+        uid,
+        oldAccountId: accountId,
+        error: retrieveError.message,
+      });
+      accountId = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(userRef);
+        const current = snap.data()?.creatorProfile?.stripeAccountId;
+        // Another request may have already fixed it — re-check
+        if (current && current !== accountId) return current;
+
+        const newId = await createStripeAccountAndGetId(stripe, uid);
+        tx.update(userRef, { "creatorProfile.stripeAccountId": newId });
+        return newId;
+      });
     }
 
-    // Use origin header with a safe fallback for environments where it's absent
-    const origin = req.headers.origin || req.headers.referer?.replace(/\/[^/]*$/, "") || DEFAULT_ORIGIN;
+    // Resolve origin from whitelist only — never trust raw headers (H2 fix)
+    const requestOrigin = req.headers.origin || "";
+    const origin = ALLOWED_ONBOARDING_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : DEFAULT_ORIGIN;
     console.log("Stripe onboarding origin:", origin);
 
     // Create an account link for onboarding

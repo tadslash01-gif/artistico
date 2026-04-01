@@ -28,7 +28,7 @@ export default function ReviewForm({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || submitting) return;
 
     if (rating < 1 || rating > 5) {
       setError("Please select a rating.");

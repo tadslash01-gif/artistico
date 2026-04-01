@@ -34,7 +34,7 @@ export async function createCheckoutSession(
   }
 
   // Check inventory for physical items
-  if (product.inventory !== null && product.inventory <= 0) {
+  if (product.inventory !== null && product.inventory !== undefined && product.inventory <= 0) {
     res.status(400).json({ error: "Product is sold out" });
     return;
   }

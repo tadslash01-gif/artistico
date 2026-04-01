@@ -1,6 +1,7 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { getStripe, stripeSecretKey, stripeWebhookSecret } from "./client";
 import { db } from "../admin";
+import { auditLog } from "../middleware/auditLog";
 import * as admin from "firebase-admin";
 
 export const stripeWebhook = onRequest(
@@ -100,6 +101,7 @@ async function handleCheckoutComplete(session: any): Promise<void> {
   };
 
   await orderRef.set(order);
+  auditLog({ action: "order.create", uid: buyerId, targetResource: orderRef.id, metadata: { productId, sessionId: session.id } });
 
   // Atomically update product sales count and inventory inside a transaction
   const productRef = db.collection("products").doc(productId);

@@ -4,8 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
-import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { firestore } from "@/lib/firebase";
+import { apiFetch } from "@/lib/api";
 
 export default function BecomeCreatorPage() {
   const { user, userData, loading: authLoading } = useAuth();
@@ -40,22 +39,17 @@ export default function BecomeCreatorPage() {
     setError("");
     setLoading(true);
     try {
-      if (!firestore || !user) throw new Error("Not authenticated");
-      await updateDoc(doc(firestore, "users", user.uid), {
-        isCreator: true,
-        creatorProfile: {
+      if (!user) throw new Error("Not authenticated");
+      await apiFetch("/users/creator-profile", {
+        method: "POST",
+        body: JSON.stringify({
           bio,
           location,
           specialties: specialties
             .split(",")
             .map((s) => s.trim())
             .filter(Boolean),
-          socialLinks: [],
-          stripeAccountId: "",
-          stripeOnboardingComplete: false,
-          sellerTermsAcceptedAt: serverTimestamp(),
-        },
-        updatedAt: serverTimestamp(),
+        }),
       });
       router.push("/dashboard");
     } catch (err: any) {

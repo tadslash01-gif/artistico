@@ -1,6 +1,7 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { verifyAuth } from "./middleware/auth";
 import { checkRateLimit, RATE_LIMIT_READ, RATE_LIMIT_WRITE } from "./middleware/rateLimit";
+import { auditLog } from "./middleware/auditLog";
 import { createCheckoutSession } from "./stripe/checkout";
 import { createStripeConnectLink, getStripeDashboardLink } from "./stripe/connect";
 import { stripeSecretKey, getStripe } from "./stripe/client";
@@ -16,6 +17,23 @@ import {
   SaveProjectSchema,
   FollowCreatorSchema,
 } from "@artistico/shared";
+
+/**
+ * Defense-in-depth: verify the authenticated user has creator role.
+ * Firestore rules enforce this too, but checking here prevents wasted work
+ * and provides a clear 403 response. (C3 fix)
+ */
+async function requireCreator(
+  req: ApiRequest,
+  res: ApiResponse
+): Promise<boolean> {
+  const userDoc = await db.collection("users").doc(req.user!.uid).get();
+  if (!userDoc.exists || !userDoc.data()?.isCreator) {
+    res.status(403).json({ error: "Creator account required" });
+    return false;
+  }
+  return true;
+}
 
 // Simple router for Cloud Functions HTTP endpoint
 // Each route handler receives (req, res) with req.user set by auth middleware
@@ -44,6 +62,8 @@ type RouteHandler = (req: ApiRequest, res: ApiResponse) => Promise<void>;
 const routes: Record<string, RouteHandler> = {
   // ─── Projects ────────────────────────────────────────
   "POST /projects": async (req, res) => {
+    if (!(await requireCreator(req, res))) return;
+
     const parsed = CreateProjectSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
@@ -204,6 +224,8 @@ const routes: Record<string, RouteHandler> = {
 
   // ─── Products ────────────────────────────────────────
   "POST /products": async (req, res) => {
+    if (!(await requireCreator(req, res))) return;
+
     const parsed = CreateProductSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
@@ -272,6 +294,8 @@ const routes: Record<string, RouteHandler> = {
   },
 
   "PUT /products/:productId": async (req, res) => {
+    if (!(await requireCreator(req, res))) return;
+
     const productId = req.params!.productId;
     const parsed = UpdateProductSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -300,6 +324,8 @@ const routes: Record<string, RouteHandler> = {
   },
 
   "DELETE /products/:productId": async (req, res) => {
+    if (!(await requireCreator(req, res))) return;
+
     const productId = req.params!.productId;
 
     const doc = await db.collection("products").doc(productId).get();
@@ -496,6 +522,7 @@ const routes: Record<string, RouteHandler> = {
       expires: Date.now() + 60 * 60 * 1000, // 1 hour
     });
 
+    auditLog({ action: "download.access", uid, targetResource: productId, ip: req.ip, userAgent: req.headers["user-agent"] });
     res.json({ downloadUrl: signedUrl });
   },
 
@@ -531,12 +558,14 @@ const routes: Record<string, RouteHandler> = {
         },
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+    auditLog({ action: "creator.promote", uid: req.user!.uid, ip: req.ip, userAgent: req.headers["user-agent"] });
     res.json({ success: true });
   },
 
   // ─── Delete Account ──────────────────────────────
   "DELETE /users/me": async (req, res) => {
     const uid = req.user!.uid;
+    auditLog({ action: "account.delete", uid, ip: req.ip, userAgent: req.headers["user-agent"] });
 
     // Delete Stripe Connect account if it exists
     const userDoc = await db.collection("users").doc(uid).get();
@@ -794,8 +823,8 @@ const ALLOWED_ORIGINS = [
   "https://artistico-78f75.firebaseapp.com",
   "https://artistico.redphantomops.com",
   "https://artistico--artistico-78f75.us-central1.hosted.app",
-  process.env.NODE_ENV !== "production" ? "http://localhost:3000" : "",
-].filter(Boolean);
+  ...(process.env.FUNCTIONS_EMULATOR === "true" ? ["http://localhost:3000"] : []),
+];
 
 const corsHandler = cors({ origin: ALLOWED_ORIGINS });
 
@@ -887,7 +916,7 @@ export const api = onRequest({ cors: false, secrets: [stripeSecretKey], invoker:
       const isWrite = method !== "GET";
       const rateLimitKey = isWrite ? `write:${identifier}` : `read:${identifier}`;
       const rateLimitConfig = isWrite ? RATE_LIMIT_WRITE : RATE_LIMIT_READ;
-      if (!checkRateLimit(rateLimitKey, rateLimitConfig)) {
+      if (!(await checkRateLimit(rateLimitKey, rateLimitConfig))) {
         res.status(429).json({ error: "Too many requests" });
         return;
       }
