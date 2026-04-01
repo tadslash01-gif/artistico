@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import React, { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import {
   collection,
   query,
@@ -15,7 +15,10 @@ import {
 } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import { SidebarAd } from "@/components/ads/SidebarAd";
+import { SidebarAdLeft } from "@/components/ads/SidebarAdLeft";
 import { InlineBannerAd } from "@/components/ads/InlineBannerAd";
+import { InFeedAd } from "@/components/ads/InFeedAd";
+import { AD_SLOTS } from "@/lib/adSlots";
 import ProjectCard from "@/components/ProjectCard";
 
 const CATEGORIES = [
@@ -261,9 +264,12 @@ function BrowseContent() {
         </div>
       </div>
 
-      {/* Project Grid + Sidebar Ad */}
-      <div className="mt-8 flex gap-8">
-        <div className="flex-1 min-w-0">
+      {/* Project Grid + Sidebar Ads */}
+      <div className="mt-8 grid gap-8 lg:grid-cols-[160px_1fr_300px]">
+        {/* Left sidebar ad (desktop) */}
+        <SidebarAdLeft slot={AD_SLOTS.SIDEBAR_LEFT} />
+
+        <div className="min-w-0">
         {loading ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -289,8 +295,14 @@ function BrowseContent() {
         ) : (
           <>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {projects.map((project) => (
-                <ProjectCard key={project.projectId} project={project} />
+              {projects.map((project, index) => (
+                <React.Fragment key={project.projectId}>
+                  {/* In-feed ad every 8 items (only when ≥12 results) */}
+                  {index > 0 && index % 8 === 0 && projects.length >= 12 && (
+                    <InFeedAd slot={AD_SLOTS.INFEED_BROWSE} />
+                  )}
+                  <ProjectCard project={project} />
+                </React.Fragment>
               ))}
             </div>
 
@@ -309,14 +321,14 @@ function BrowseContent() {
 
             {/* Inline ad on mobile after project grid */}
             <div className="mt-8 lg:hidden">
-              <InlineBannerAd slot="1890754677" />
+              <InlineBannerAd slot={AD_SLOTS.INLINE_BROWSE} />
             </div>
           </>
         )}
         </div>
 
-        {/* Desktop sidebar ad */}
-        <SidebarAd slot="1890754677" />
+        {/* Desktop right sidebar ad */}
+        <SidebarAd slot={AD_SLOTS.SIDEBAR_RIGHT} />
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ import InquiryForm from "@/components/InquiryForm";
 import FollowButton from "@/components/FollowButton";
 import ProjectCard from "@/components/ProjectCard";
 import { InlineBannerAd } from "@/components/ads/InlineBannerAd";
+import { AD_SLOTS } from "@/lib/adSlots";
 
 interface CreatorData {
   uid: string;
@@ -244,7 +245,7 @@ export default function CreatorProfilePage({
       </div>
 
       {/* Ad */}
-      <InlineBannerAd slot="INLINE_CREATOR" className="my-4" />
+      <InlineBannerAd slot={AD_SLOTS.INLINE_CREATOR} className="my-4" />
 
       {/* Projects */}
       <div className="mt-8">
