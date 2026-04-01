@@ -10,6 +10,7 @@ import { formatCurrency, timeAgo } from "@/lib/utils";
 import InquiryForm from "@/components/InquiryForm";
 import ReviewForm from "@/components/ReviewForm";
 import SaveButton from "@/components/SaveButton";
+import ShareButton from "@/components/ShareButton";
 import FollowButton from "@/components/FollowButton";
 import DifficultyBadge from "@/components/DifficultyBadge";
 import VerifiedBadge from "@/components/VerifiedBadge";
@@ -201,6 +202,11 @@ export default function ProjectDetailPage({
           body: JSON.stringify({ productId }),
         }
       );
+      // Validate redirect URL points to Stripe checkout
+      try {
+        const parsed = new URL(url);
+        if (!parsed.hostname.endsWith("stripe.com")) throw new Error();
+      } catch { throw new Error("Invalid checkout URL"); }
       window.location.href = url;
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to start checkout");
@@ -315,10 +321,16 @@ export default function ProjectDetailPage({
             <h1 className="text-3xl font-bold text-foreground">
               {project.title}
             </h1>
-            <SaveButton
-              projectId={project.projectId}
-              initialCount={project.savesCount || 0}
-            />
+            <div className="flex items-center gap-2 shrink-0">
+              <ShareButton
+                projectTitle={project.title}
+                projectSlug={project.slug}
+              />
+              <SaveButton
+                projectId={project.projectId}
+                initialCount={project.savesCount || 0}
+              />
+            </div>
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">

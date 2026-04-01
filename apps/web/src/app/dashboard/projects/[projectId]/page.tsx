@@ -212,7 +212,7 @@ export default function ProjectEditPage({
           images,
         }),
       });
-      setSuccess("Project saved successfully!");
+      setSuccess("Project saved successfully! Your changes are live.");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to save project");
     } finally {
@@ -234,7 +234,7 @@ export default function ProjectEditPage({
       setProject({ ...project, status: newStatus });
       setSuccess(
         newStatus === "published"
-          ? "Project is now live!"
+          ? "🎉 Your project is live! Share it with the world."
           : "Project unpublished."
       );
     } catch (err: unknown) {

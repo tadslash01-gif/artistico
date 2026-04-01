@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { onRequest } from "firebase-functions/v2/https";
 import { verifyAuth } from "./middleware/auth";
 import { checkRateLimit, RATE_LIMIT_READ, RATE_LIMIT_WRITE } from "./middleware/rateLimit";
@@ -16,6 +17,7 @@ import {
   CreateCreatorProfileSchema,
   SaveProjectSchema,
   FollowCreatorSchema,
+  UpdateNotificationPrefsSchema,
 } from "@artistico/shared";
 
 /**
@@ -76,7 +78,7 @@ const routes: Record<string, RouteHandler> = {
         .replace(/[^\w\s-]/g, "")
         .replace(/\s+/g, "-") +
       "-" +
-      Date.now().toString(36);
+      crypto.randomUUID().slice(0, 8);
 
     const projectRef = db.collection("projects").doc();
     const project = {
@@ -352,7 +354,11 @@ const routes: Record<string, RouteHandler> = {
 
   // ─── Orders ──────────────────────────────────────────
   "GET /orders": async (req, res) => {
-    const { role } = req.query; // "buyer" | "creator"
+    const { role } = req.query;
+    if (role && role !== "buyer" && role !== "creator") {
+      res.status(400).json({ error: "Invalid role parameter" });
+      return;
+    }
     const field = role === "creator" ? "creatorId" : "buyerId";
     const snapshot = await db
       .collection("orders")
@@ -440,36 +446,50 @@ const routes: Record<string, RouteHandler> = {
       return;
     }
 
-    const reviewRef = db.collection("reviews").doc();
-    const review = {
-      reviewId: reviewRef.id,
-      ...parsed.data,
-      buyerId: req.user!.uid,
-      creatorId: order.creatorId,
-      images: parsed.data.images || null,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
-    await reviewRef.set(review);
+    // Use a deterministic doc ID to prevent duplicate reviews atomically
+    const reviewDocId = `${req.user!.uid}_${parsed.data.orderId}`;
+    const reviewRef = db.collection("reviews").doc(reviewDocId);
 
-    // Update project average rating atomically via transaction
-    const projectRef = db.collection("projects").doc(parsed.data.projectId);
-    await db.runTransaction(async (tx) => {
-      const projectDoc = await tx.get(projectRef);
-      if (!projectDoc.exists) return;
-      const projectData = projectDoc.data()!;
-      const newCount = (projectData.reviewCount || 0) + 1;
-      const newAverage =
-        ((projectData.averageRating || 0) * (projectData.reviewCount || 0) + parsed.data.rating) / newCount;
+    // Atomic check-and-create inside a transaction to prevent race conditions
+    const reviewId = await db.runTransaction(async (tx) => {
+      const existingDoc = await tx.get(reviewRef);
+      if (existingDoc.exists) return null; // duplicate
 
-      tx.update(projectRef, {
-        reviewCount: newCount,
-        averageRating: Math.round(newAverage * 100) / 100,
+      const review = {
+        reviewId: reviewRef.id,
+        ...parsed.data,
+        buyerId: req.user!.uid,
+        creatorId: order.creatorId,
+        images: parsed.data.images || null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      };
+      tx.set(reviewRef, review);
+
+      // Update project average rating atomically in the same transaction
+      const projectRef = db.collection("projects").doc(parsed.data.projectId);
+      const projectDoc = await tx.get(projectRef);
+      if (projectDoc.exists) {
+        const projectData = projectDoc.data()!;
+        const newCount = (projectData.reviewCount || 0) + 1;
+        const newAverage =
+          ((projectData.averageRating || 0) * (projectData.reviewCount || 0) + parsed.data.rating) / newCount;
+        tx.update(projectRef, {
+          reviewCount: newCount,
+          averageRating: Math.round(newAverage * 100) / 100,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+
+      return reviewRef.id;
     });
 
-    res.status(201).json({ reviewId: reviewRef.id });
+    if (!reviewId) {
+      res.status(409).json({ error: "You have already reviewed this order" });
+      return;
+    }
+
+    res.status(201).json({ reviewId });
   },
 
   "GET /reviews": async (req, res) => {
@@ -812,6 +832,53 @@ const routes: Record<string, RouteHandler> = {
       .limit(limit)
       .get();
     res.json({ projects: snapshot.docs.map((doc) => doc.data()) });
+  },
+
+  // ─── Notification Preferences ────────────────────────
+  "GET /users/notification-preferences": async (req, res) => {
+    const userDoc = await db.collection("users").doc(req.user!.uid).get();
+    if (!userDoc.exists) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    const prefs = userDoc.data()?.notificationPreferences || {
+      emailOnNewOrder: true,
+      emailOnNewReview: true,
+      emailOnNewFollower: true,
+      emailMarketing: true,
+    };
+    res.json(prefs);
+  },
+
+  "PUT /users/notification-preferences": async (req, res) => {
+    const parsed = UpdateNotificationPrefsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
+      return;
+    }
+
+    // Merge with existing prefs (only update provided fields)
+    const userDoc = await db.collection("users").doc(req.user!.uid).get();
+    if (!userDoc.exists) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const existing = userDoc.data()?.notificationPreferences || {
+      emailOnNewOrder: true,
+      emailOnNewReview: true,
+      emailOnNewFollower: true,
+      emailMarketing: true,
+    };
+
+    const updated = { ...existing, ...parsed.data };
+
+    await db.collection("users").doc(req.user!.uid).update({
+      notificationPreferences: updated,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    res.json(updated);
   },
 };
 

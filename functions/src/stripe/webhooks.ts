@@ -60,7 +60,7 @@ export const stripeWebhook = onRequest(
 );
 
 async function handleCheckoutComplete(session: any): Promise<void> {
-  const { productId, projectId, buyerId, creatorId } = session.metadata;
+  const { productId, projectId, buyerId } = session.metadata;
 
   // Idempotency: check if order already exists for this session
   const existing = await db
@@ -76,6 +76,12 @@ async function handleCheckoutComplete(session: any): Promise<void> {
 
   const productDoc = await db.collection("products").doc(productId).get();
   const product = productDoc.data();
+  // Defense-in-depth: derive creatorId from the product record, never from metadata
+  const creatorId = product?.creatorId;
+  if (!product || !creatorId) {
+    console.error(`Product ${productId} not found or missing creatorId`);
+    return;
+  }
   const platformFee = Math.round(session.amount_total * 0.05);
 
   const orderRef = db.collection("orders").doc();

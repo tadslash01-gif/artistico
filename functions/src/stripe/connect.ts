@@ -126,7 +126,6 @@ export async function createStripeConnectLink(
       code: error.code,
       type: error.type,
       message: error.message,
-      stack: error.stack,
     });
 
     if (error.type === "StripeAuthenticationError") {

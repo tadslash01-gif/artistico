@@ -46,6 +46,51 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+/* Gradient CTA button */
+.btn-gradient {
+  background: linear-gradient(135deg, #d97706 0%, #ea580c 100%);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.875rem;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.25);
+  transition: all 0.2s ease;
+}
+.btn-gradient:hover {
+  background: linear-gradient(135deg, #b45309 0%, #c2410c 100%);
+  box-shadow: 0 4px 16px rgba(217, 119, 6, 0.35);
+  transform: translateY(-1px);
+}
+.btn-gradient:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.25);
+}
+
+/* Modal backdrop */
+.modal-backdrop {
+  animation: backdrop-in 0.2s ease-out both;
+}
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Modal panel */
+.modal-panel {
+  animation: modal-in 0.25s ease-out both;
+}
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 /* Hide scrollbar for horizontal carousels */
 .scrollbar-hide {
   -ms-overflow-style: none;

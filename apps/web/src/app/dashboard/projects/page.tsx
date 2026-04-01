@@ -61,12 +61,16 @@ export default function ProjectsPage() {
           </div>
         ) : projects.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-12 text-center">
-            <p className="text-muted-foreground">No projects yet.</p>
+            <span className="text-5xl" aria-hidden="true">✨</span>
+            <p className="mt-4 font-medium text-foreground">Your creative journey starts here!</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Share what you’ve been making — a project is just photos, a description, and your story.
+            </p>
             <Link
               href="/dashboard/projects/new"
-              className="mt-4 inline-block text-sm font-medium text-primary hover:text-primary/80"
+              className="btn-gradient mt-6 inline-block"
             >
-              Create your first project
+              Create Your First Project
             </Link>
           </div>
         ) : (

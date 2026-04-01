@@ -193,3 +193,13 @@ export const CreateReportSchema = z.object({
 });
 
 export type CreateReportInput = z.infer<typeof CreateReportSchema>;
+
+// Notification preferences schema
+export const UpdateNotificationPrefsSchema = z.object({
+  emailOnNewOrder: z.boolean().optional(),
+  emailOnNewReview: z.boolean().optional(),
+  emailOnNewFollower: z.boolean().optional(),
+  emailMarketing: z.boolean().optional(),
+});
+
+export type UpdateNotificationPrefsInput = z.infer<typeof UpdateNotificationPrefsSchema>;

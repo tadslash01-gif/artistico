@@ -142,9 +142,10 @@ export default function OrdersPage() {
           </div>
         ) : orders.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-12 text-center">
-            <p className="text-muted-foreground">No orders yet.</p>
+            <span className="text-5xl" aria-hidden="true">📦</span>
+            <p className="mt-4 font-medium text-foreground">No orders yet — they’re on their way!</p>
             <p className="mt-2 text-sm text-muted-foreground">
-              Orders will appear here when buyers purchase your products.
+              Once buyers discover your creations, orders will show up here.
             </p>
           </div>
         ) : (

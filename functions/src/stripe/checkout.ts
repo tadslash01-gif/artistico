@@ -3,6 +3,15 @@ import { db } from "../admin";
 
 const PLATFORM_FEE_PERCENT = 5;
 
+const ALLOWED_CHECKOUT_ORIGINS = [
+  "https://artistico-78f75.web.app",
+  "https://artistico-78f75.firebaseapp.com",
+  "https://artistico.redphantomops.com",
+  "https://artistico--artistico-78f75.us-central1.hosted.app",
+];
+
+const DEFAULT_CHECKOUT_ORIGIN = "https://artistico--artistico-78f75.us-central1.hosted.app";
+
 export async function createCheckoutSession(
   req: { body: any; headers: Record<string, any>; user?: { uid: string } },
   res: { status(code: number): any; json(body: any): void }
@@ -51,6 +60,12 @@ export async function createCheckoutSession(
   const stripe = getStripe();
   const platformFee = Math.round(product.price * (PLATFORM_FEE_PERCENT / 100));
 
+  // Validate origin against allow-list — never trust raw headers
+  const requestOrigin = req.headers.origin || "";
+  const origin = ALLOWED_CHECKOUT_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : DEFAULT_CHECKOUT_ORIGIN;
+
   const sessionParams: any = {
     mode: "payment",
     line_items: [
@@ -79,10 +94,10 @@ export async function createCheckoutSession(
       buyerId: req.user!.uid,
       creatorId: product.creatorId,
     },
-    success_url: `${req.headers.origin}/orders/success?session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${origin}/orders/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: product.projectId
-      ? `${req.headers.origin}/project/${product.projectId}`
-      : `${req.headers.origin}/browse`,
+      ? `${origin}/project/${product.projectId}`
+      : `${origin}/browse`,
   };
 
   // Collect shipping address for physical items

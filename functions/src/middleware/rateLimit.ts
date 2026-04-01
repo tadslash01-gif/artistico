@@ -14,6 +14,18 @@ export const RATE_LIMIT_WRITE: RateLimitConfig = { maxRequests: 20, windowMs: 15
 // Falls back to Firestore for persistence across cold starts and instances.
 const localCache = new Map<string, { count: number; windowStart: number }>();
 
+// Periodically evict stale cache entries to prevent memory leaks
+const CACHE_CLEANUP_INTERVAL = 5 * 60_000; // 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of localCache) {
+    // Remove entries whose window expired more than 2 intervals ago
+    if (now - entry.windowStart > CACHE_CLEANUP_INTERVAL * 2) {
+      localCache.delete(key);
+    }
+  }
+}, CACHE_CLEANUP_INTERVAL).unref();
+
 /**
  * Persistent rate limiter backed by Firestore.
  * Uses an in-memory cache for hot-path speed, and Firestore for cross-instance

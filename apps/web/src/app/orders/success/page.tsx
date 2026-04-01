@@ -136,13 +136,13 @@ export default function OrderSuccessPage({
     <div className="mx-auto max-w-lg px-4 py-12">
       <div className="text-center">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-          <span className="text-3xl">✓</span>
+          <span className="text-3xl">🎉</span>
         </div>
         <h1 className="mt-4 text-2xl font-bold text-foreground">
-          Order Confirmed!
+          You just made a creator’s day!
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Thank you for your purchase. Your order has been placed successfully.
+          Your purchase supports an independent hobby creator. Thank you!
         </p>
       </div>
 

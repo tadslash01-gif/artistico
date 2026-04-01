@@ -4,6 +4,7 @@ import { AD_SLOTS } from "@/lib/adSlots";
 import { ArtisticoLogo } from "@/components/branding/ArtisticoLogo";
 import TrendingProjects from "@/components/TrendingProjects";
 import NewCreators from "@/components/NewCreators";
+import FeaturedCreators from "@/components/FeaturedCreators";
 import RecentlyAdded from "@/components/RecentlyAdded";
 
 const CATEGORIES = [
@@ -33,7 +34,7 @@ export default function Home() {
         </div>
         <div className="relative mx-auto flex flex-col items-center">
           <ArtisticoLogo size="lg" />
-          <h1 className="mt-8 max-w-2xl text-3xl font-bold tracking-tight text-foreground sm:text-5xl">
+          <h1 className="mt-8 max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
             Sell what you make.
             <br />
             <span className="text-primary">Fund your hobby.</span>
@@ -45,7 +46,7 @@ export default function Home() {
           <div className="mt-10 flex items-center justify-center gap-4">
             <Link
               href="/signup"
-              className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+              className="btn-gradient"
             >
               Start Selling — It&apos;s Free
             </Link>
@@ -64,7 +65,7 @@ export default function Home() {
 
       {/* Categories */}
       <section className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-        <h2 className="text-center text-2xl font-bold text-foreground">
+        <h2 className="text-center text-2xl font-bold text-foreground sm:text-3xl">
           Explore by Category
         </h2>
         <div className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
@@ -92,7 +93,7 @@ export default function Home() {
       <section className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="flex items-center justify-center gap-2">
           <span className="text-2xl" aria-hidden="true">🔥</span>
-          <h2 className="text-center text-2xl font-bold text-foreground">
+          <h2 className="text-center text-2xl font-bold text-foreground sm:text-3xl">
             Trending Projects
           </h2>
         </div>
@@ -114,7 +115,7 @@ export default function Home() {
 
       {/* New Creators */}
       <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <h2 className="text-center text-2xl font-bold text-foreground">
+        <h2 className="text-center text-2xl font-bold text-foreground sm:text-3xl">
           New Creators
         </h2>
         <p className="mt-2 text-center text-muted-foreground">
@@ -125,9 +126,25 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Featured Creators */}
+      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-center gap-2">
+          <span className="text-2xl" aria-hidden="true">⭐</span>
+          <h2 className="text-center text-2xl font-bold text-foreground sm:text-3xl">
+            Featured Creators
+          </h2>
+        </div>
+        <p className="mt-2 text-center text-muted-foreground">
+          Top creators making waves in the community
+        </p>
+        <div className="mt-10">
+          <FeaturedCreators />
+        </div>
+      </section>
+
       {/* Recently Added */}
       <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <h2 className="text-center text-2xl font-bold text-foreground">
+        <h2 className="text-center text-2xl font-bold text-foreground sm:text-3xl">
           Recently Added
         </h2>
         <p className="mt-2 text-center text-muted-foreground">
@@ -149,7 +166,7 @@ export default function Home() {
       {/* How It Works */}
       <section className="px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-3xl">
-          <h2 className="text-center text-2xl font-bold text-foreground">
+          <h2 className="text-center text-2xl font-bold text-foreground sm:text-3xl">
             How It Works
           </h2>
           <div className="mt-14 flex flex-col gap-12 md:flex-row md:gap-8">

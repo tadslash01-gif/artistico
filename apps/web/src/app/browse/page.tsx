@@ -20,6 +20,7 @@ import { InlineBannerAd } from "@/components/ads/InlineBannerAd";
 import { InFeedAd } from "@/components/ads/InFeedAd";
 import { AD_SLOTS } from "@/lib/adSlots";
 import ProjectCard from "@/components/ProjectCard";
+import BrowseScrollRow from "@/components/BrowseScrollRow";
 
 const CATEGORIES = [
   { name: "All", slug: "" },
@@ -205,6 +206,12 @@ function BrowseContent() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <h1 className="text-3xl font-bold text-foreground">Browse Projects</h1>
 
+      {/* Curated scroll rows */}
+      <div className="mt-8">
+        <BrowseScrollRow title="Trending This Week" emoji="🔥" variant="trending" />
+        <BrowseScrollRow title="New This Week" emoji="✨" variant="new" />
+      </div>
+
       {/* Search */}
       <div className="mt-6">
         <input
@@ -238,6 +245,7 @@ function BrowseContent() {
         {/* Sort + Difficulty */}
         <div className="flex items-center gap-3">
           <select
+            aria-label="Filter by difficulty"
             value={difficultyFilter}
             onChange={(e) => router.push(buildUrl({ difficulty: e.target.value }))}
             className="rounded-lg border border-border bg-white px-3 py-1.5 text-sm text-foreground"
@@ -251,6 +259,7 @@ function BrowseContent() {
           </select>
 
           <select
+            aria-label="Sort projects"
             value={sortFilter}
             onChange={(e) => router.push(buildUrl({ sort: e.target.value }))}
             className="rounded-lg border border-border bg-white px-3 py-1.5 text-sm text-foreground"
@@ -281,15 +290,16 @@ function BrowseContent() {
           </div>
         ) : projects.length === 0 ? (
           <div className="py-20 text-center">
-            <p className="text-lg text-muted-foreground">
+            <span className="text-5xl" aria-hidden="true">🔍</span>
+            <p className="mt-4 text-lg font-medium text-foreground">
               No projects found{categoryFilter ? ` in "${categoryFilter}"` : ""}{searchQuery ? ` matching "${searchQuery}"` : ""}.
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
               Be the first to{" "}
-              <Link href="/become-creator" className="text-primary hover:text-primary/80">
-                share a project
+              <Link href="/become-creator" className="text-primary font-medium hover:text-primary/80">
+                share something you made
               </Link>
-              !
+              {" "}— your hobby could inspire someone!
             </p>
           </div>
         ) : (

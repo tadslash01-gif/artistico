@@ -21,6 +21,13 @@ export interface CreatorProfile {
   socialLinks: SocialLink[];
 }
 
+export interface NotificationPreferences {
+  emailOnNewOrder: boolean;
+  emailOnNewReview: boolean;
+  emailOnNewFollower: boolean;
+  emailMarketing: boolean;
+}
+
 export interface User {
   uid: string;
   email: string;
@@ -32,6 +39,7 @@ export interface User {
   followingCount: number;
   totalSales: number;
   isVerified: boolean;
+  notificationPreferences: NotificationPreferences;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

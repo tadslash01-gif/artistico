@@ -20,6 +20,7 @@ interface ProjectCardProps {
     averageRating: number;
     reviewCount: number;
     savesCount?: number;
+    totalSalesCount?: number;
     minPrice?: number | null;
     creatorName?: string;
     creatorAvatar?: string | null;
@@ -110,6 +111,11 @@ export default function ProjectCard({ project }: ProjectCardProps) {
             {(project.savesCount ?? 0) > 0 && (
               <span aria-label={`${project.savesCount} saves`}>
                 ♡ {project.savesCount}
+              </span>
+            )}
+            {(project.totalSalesCount ?? 0) > 0 && (
+              <span className="font-medium text-primary" aria-label={`${project.totalSalesCount} sold`}>
+                🔥 {project.totalSalesCount} sold
               </span>
             )}
           </div>
