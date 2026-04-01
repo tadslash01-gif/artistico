@@ -26,6 +26,18 @@ const POLICIES = [
     description:
       "Our policies on returns, refunds, and disputes for purchases made on Artistico.",
   },
+  {
+    title: "Seller Agreement",
+    href: "/legal/seller",
+    description:
+      "Terms and obligations for creators listing and selling products on Artistico.",
+  },
+  {
+    title: "Payment Terms",
+    href: "/legal/payments",
+    description:
+      "Payment processing, Stripe disclosures, fees, and payout information.",
+  },
 ];
 
 export default function LegalPage() {

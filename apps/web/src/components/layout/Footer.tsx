@@ -25,6 +25,9 @@ export function Footer() {
             <Link href="/legal/refund" className="hover:text-foreground transition-colors">
               Refunds
             </Link>
+            <Link href="/legal/seller" className="hover:text-foreground transition-colors">
+              Seller Terms
+            </Link>
           </nav>
         </div>
         <p className="mt-4 text-center text-xs text-muted-foreground">

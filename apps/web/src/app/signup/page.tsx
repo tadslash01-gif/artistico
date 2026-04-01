@@ -11,6 +11,7 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const { user, userData, loading: authLoading, signUp, signInWithGoogle } = useAuth();
   const router = useRouter();
 
@@ -119,9 +120,30 @@ export default function SignUpPage() {
               placeholder="Minimum 8 characters"
             />
           </div>
+          <div className="flex items-start gap-2">
+            <input
+              id="terms"
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-[#d6cfc7] text-primary focus:ring-primary/30"
+              required
+            />
+            <label htmlFor="terms" className="text-xs text-muted-foreground">
+              I agree to the{" "}
+              <Link href="/legal/terms" className="text-primary hover:text-primary/80">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/legal/privacy" className="text-primary hover:text-primary/80">
+                Privacy Policy
+              </Link>
+            </label>
+          </div>
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !termsAccepted}
             className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
             {loading ? "Setting things up..." : "Start Creating"}
@@ -139,7 +161,8 @@ export default function SignUpPage() {
           </div>
           <button
             onClick={handleGoogle}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d6cfc7] bg-white px-4 py-3 text-sm font-medium text-foreground shadow-sm hover:bg-muted transition-colors"
+            disabled={!termsAccepted}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d6cfc7] bg-white px-4 py-3 text-sm font-medium text-foreground shadow-sm hover:bg-muted disabled:opacity-50 transition-colors"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
@@ -151,17 +174,11 @@ export default function SignUpPage() {
           </button>
         </div>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          By signing up, you agree to our{" "}
-          <Link href="/terms" className="text-primary hover:text-primary/80">
-            Terms of Service
-          </Link>{" "}
-          and{" "}
-          <Link href="/privacy" className="text-primary hover:text-primary/80">
-            Privacy Policy
-          </Link>
-          .
-        </p>
+        {!termsAccepted && (
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            Please accept the Terms of Service above to continue.
+          </p>
+        )}
       </div>
     </div>
   );

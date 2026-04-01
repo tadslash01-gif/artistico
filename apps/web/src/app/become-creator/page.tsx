@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
@@ -14,6 +15,7 @@ export default function BecomeCreatorPage() {
   const [specialties, setSpecialties] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sellerTermsAccepted, setSellerTermsAccepted] = useState(false);
 
   if (authLoading) {
     return (
@@ -51,6 +53,7 @@ export default function BecomeCreatorPage() {
           socialLinks: [],
           stripeAccountId: "",
           stripeOnboardingComplete: false,
+          sellerTermsAcceptedAt: serverTimestamp(),
         },
         updatedAt: serverTimestamp(),
       });
@@ -127,9 +130,30 @@ export default function BecomeCreatorPage() {
           <p className="mt-1 text-xs text-muted-foreground">Separate with commas</p>
         </div>
 
+        <div className="flex items-start gap-2">
+          <input
+            id="seller-terms"
+            type="checkbox"
+            checked={sellerTermsAccepted}
+            onChange={(e) => setSellerTermsAccepted(e.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-[#d6cfc7] text-primary focus:ring-primary/30"
+            required
+          />
+          <label htmlFor="seller-terms" className="text-xs text-muted-foreground">
+            I agree to the{" "}
+            <Link href="/legal/seller" className="text-primary hover:text-primary/80">
+              Seller Agreement
+            </Link>{" "}
+            and{" "}
+            <Link href="/legal/payments" className="text-primary hover:text-primary/80">
+              Payment Terms
+            </Link>
+          </label>
+        </div>
+
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !sellerTermsAccepted}
           className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
         >
           {loading ? "Setting things up..." : "Let's Go"}
