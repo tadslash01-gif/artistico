@@ -1,0 +1,18 @@
+{
+  "webhook_endpoints": [
+    {
+      "url": "https://us-central1-artistico-78f75.cloudfunctions.net/stripeWebhook",
+      "description": "Artistico platform webhook - handles checkout completions, account updates, and disputes",
+      "enabled_events": [
+        "checkout.session.completed",
+        "account.updated",
+        "charge.dispute.created"
+      ],
+      "api_version": null,
+      "metadata": {
+        "platform": "artistico",
+        "environment": "production"
+      }
+    }
+  ]
+}
