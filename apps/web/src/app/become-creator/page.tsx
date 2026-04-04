@@ -102,6 +102,7 @@ export default function BecomeCreatorPage() {
           <input
             id="location"
             type="text"
+            required
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             placeholder="City, State or Country"
@@ -116,6 +117,7 @@ export default function BecomeCreatorPage() {
           <input
             id="specialties"
             type="text"
+            required
             value={specialties}
             onChange={(e) => setSpecialties(e.target.value)}
             placeholder="woodworking, digital art, ceramics (comma separated)"
