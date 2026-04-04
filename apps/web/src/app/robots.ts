@@ -9,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/dashboard/", "/login", "/signup"],
       },
     ],
-    sitemap: "https://artistico.redphantomops.com/sitemap.xml",
+    sitemap: "https://artistico.love/sitemap.xml",
   };
 }

@@ -6,7 +6,7 @@
         "oAuthBrandDisplayName": "Artistico",
         "supportEmail": "tad.smith.jr@gmail.com",
         "authorizedRedirectUris": [
-          "https://artistico.redphantomops.com/__/auth/handler",
+          "https://artistico.love/__/auth/handler",
           "https://artistico-78f75.firebaseapp.com/__/auth/handler"
         ]
       }

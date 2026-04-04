@@ -38,6 +38,7 @@ export default function NewProductPage({
   const [price, setPrice] = useState("");
   const [inventory, setInventory] = useState("");
   const [shippingRequired, setShippingRequired] = useState(true);
+  const [licenseType, setLicenseType] = useState<string>("personal");
 
   // Images
   const [images, setImages] = useState<string[]>([]);
@@ -209,6 +210,7 @@ export default function NewProductPage({
         title,
         description,
         type,
+        licenseType,
         price: priceInCents,
         images,
         shippingRequired,
@@ -336,6 +338,26 @@ export default function NewProductPage({
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             You keep 95%. Platform fee is 5%.
+          </p>
+        </div>
+
+        {/* License Type */}
+        <div>
+          <label htmlFor="licenseType" className="block text-sm font-medium text-foreground">
+            License Type
+          </label>
+          <select
+            id="licenseType"
+            value={licenseType}
+            onChange={(e) => setLicenseType(e.target.value)}
+            className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="personal">Personal Use</option>
+            <option value="commercial">Commercial Use</option>
+            <option value="extended-commercial">Extended Commercial</option>
+          </select>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Defines how buyers can use the product.
           </p>
         </div>
 

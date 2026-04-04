@@ -6,7 +6,7 @@ const PLATFORM_FEE_PERCENT = 5;
 const ALLOWED_CHECKOUT_ORIGINS = [
   "https://artistico-78f75.web.app",
   "https://artistico-78f75.firebaseapp.com",
-  "https://artistico.redphantomops.com",
+  "https://artistico.love",
   "https://artistico--artistico-78f75.us-central1.hosted.app",
 ];
 

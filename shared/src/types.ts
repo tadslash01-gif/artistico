@@ -50,6 +50,27 @@ export type ProjectStatus = "draft" | "published" | "archived";
 
 export type ProjectDifficulty = "beginner" | "intermediate" | "advanced";
 
+// ─── Materials ───────────────────────────────────────────
+
+export interface MaterialItem {
+  name: string;
+  quantity: number;
+  unit: string;
+  estimatedPrice: number | null; // cents
+  url: string | null; // optional affiliate/purchase link
+  notes: string | null;
+}
+
+// ─── Licensing ───────────────────────────────────────────
+
+export const LICENSE_TYPES = [
+  "personal",
+  "commercial",
+  "extended-commercial",
+] as const;
+
+export type LicenseType = (typeof LICENSE_TYPES)[number];
+
 export interface Project {
   projectId: string;
   creatorId: string;
@@ -58,6 +79,7 @@ export interface Project {
   description: string;
   images: string[];
   materialsUsed: string[];
+  materials: MaterialItem[];
   tags: string[];
   category: string;
   status: ProjectStatus;
@@ -101,6 +123,7 @@ export interface Product {
   title: string;
   description: string;
   type: ProductType;
+  licenseType: LicenseType;
   price: number; // cents
   currency: string;
   images: string[];
@@ -150,6 +173,9 @@ export interface Order {
   shippingAddress: ShippingAddress | null;
   digitalDownloadUrl: string | null;
   trackingNumber: string | null;
+  disputeReason: string | null;
+  disputeOpenedAt: Timestamp | null;
+  disputeDeadline: Timestamp | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   paidAt: Timestamp | null;
@@ -247,7 +273,7 @@ export interface RecentView {
 
 // ─── Reports ─────────────────────────────────────────────
 
-export type ReportTargetType = "project" | "product" | "creator";
+export type ReportTargetType = "project" | "product" | "user" | "review";
 export type ReportStatus = "pending" | "reviewed" | "resolved";
 
 export interface Report {

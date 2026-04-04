@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const BASE_URL = "https://artistico.redphantomops.com";
+const BASE_URL = "https://artistico.love";
 const PROJECT_ID = "artistico-78f75";
 
 interface FirestoreDoc {

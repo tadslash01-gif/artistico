@@ -1,7 +1,6 @@
 /**
  * Centralized AdSense ad-slot configuration.
  *
- * Replace placeholder slot IDs with real ones from the AdSense dashboard.
  * Naming convention in AdSense: "Artistico_<Location>_<Position>"
  *
  * Recommended ad units to create:

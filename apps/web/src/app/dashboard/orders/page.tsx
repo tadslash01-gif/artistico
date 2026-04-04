@@ -15,6 +15,7 @@ interface OrderItem {
   platformFee: number;
   creatorPayout: number;
   status: string;
+  productType?: "physical" | "digital" | "template" | "commission";
   shippingAddress: {
     line1: string;
     line2: string | null;
@@ -27,6 +28,8 @@ interface OrderItem {
   trackingNumber: string | null;
   createdAt: { seconds: number; nanoseconds: number } | null;
   fulfilledAt: { seconds: number; nanoseconds: number } | null;
+  disputeReason?: string | null;
+  disputeOpenedAt?: { seconds: number; nanoseconds: number } | null;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -41,9 +44,13 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function OrdersPage() {
   const { user } = useAuth();
+  const [tab, setTab] = useState<"sales" | "purchases">("sales");
   const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [buyerOrders, setBuyerOrders] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [fulfilling, setFulfilling] = useState<string | null>(null);
+  const [disputing, setDisputing] = useState<string | null>(null);
+  const [disputeReason, setDisputeReason] = useState("");
   const [trackingInput, setTrackingInput] = useState<Record<string, string>>(
     {}
   );
@@ -54,10 +61,12 @@ export default function OrdersPage() {
 
     async function fetchOrders() {
       try {
-        const { orders } = await apiFetch<{ orders: OrderItem[] }>(
-          "/orders?role=creator"
-        );
-        setOrders(orders);
+        const [creatorRes, buyerRes] = await Promise.all([
+          apiFetch<{ orders: OrderItem[] }>("/orders?role=creator"),
+          apiFetch<{ orders: OrderItem[] }>("/orders?role=buyer"),
+        ]);
+        setOrders(creatorRes.orders);
+        setBuyerOrders(buyerRes.orders);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Failed to load orders");
       } finally {
@@ -67,6 +76,37 @@ export default function OrdersPage() {
 
     fetchOrders();
   }, [user]);
+
+  const canDispute = (order: OrderItem) => {
+    if (order.status === "disputed" || order.status === "refunded") return false;
+    if (!order.createdAt) return false;
+    const createdMs = order.createdAt.seconds * 1000;
+    const isDigital = order.productType === "digital" || order.productType === "template";
+    const windowDays = isDigital ? 7 : 14;
+    return Date.now() - createdMs < windowDays * 24 * 60 * 60 * 1000;
+  };
+
+  const handleDispute = async (orderId: string) => {
+    if (!disputeReason.trim()) return;
+    setDisputing(orderId);
+    setError("");
+    try {
+      await apiFetch(`/orders/${orderId}/dispute`, {
+        method: "POST",
+        body: JSON.stringify({ reason: disputeReason }),
+      });
+      setBuyerOrders((prev) =>
+        prev.map((o) =>
+          o.orderId === orderId ? { ...o, status: "disputed", disputeReason } : o
+        )
+      );
+      setDisputing(null);
+      setDisputeReason("");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to open dispute");
+      setDisputing(null);
+    }
+  };
 
   const handleFulfill = async (orderId: string, hasShipping: boolean) => {
     setFulfilling(orderId);
@@ -124,6 +164,30 @@ export default function OrdersPage() {
         Manage incoming orders and fulfillment.
       </p>
 
+      {/* Tabs */}
+      <div className="mt-4 flex gap-1 rounded-lg bg-muted p-1">
+        <button
+          onClick={() => setTab("sales")}
+          className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            tab === "sales"
+              ? "bg-white text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Sales ({orders.length})
+        </button>
+        <button
+          onClick={() => setTab("purchases")}
+          className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            tab === "purchases"
+              ? "bg-white text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Purchases ({buyerOrders.length})
+        </button>
+      </div>
+
       {error && (
         <div className="mt-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
@@ -140,13 +204,114 @@ export default function OrdersPage() {
               />
             ))}
           </div>
-        ) : orders.length === 0 ? (
+
+        ) : tab === "sales" && orders.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-12 text-center">
             <span className="text-5xl" aria-hidden="true">📦</span>
-            <p className="mt-4 font-medium text-foreground">No orders yet — they’re on their way!</p>
+            <p className="mt-4 font-medium text-foreground">No orders yet — they're on their way!</p>
             <p className="mt-2 text-sm text-muted-foreground">
               Once buyers discover your creations, orders will show up here.
             </p>
+          </div>
+        ) : tab === "purchases" && buyerOrders.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border p-12 text-center">
+            <span className="text-5xl" aria-hidden="true">🛒</span>
+            <p className="mt-4 font-medium text-foreground">No purchases yet</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Browse projects and find something you love.
+            </p>
+          </div>
+        ) : tab === "purchases" ? (
+          <div className="space-y-4">
+            {buyerOrders.map((order) => (
+              <div
+                key={order.orderId}
+                className="rounded-xl border border-border bg-white p-5"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Order #{order.orderId.slice(0, 8)}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {formatDate(order.createdAt)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-bold text-foreground">
+                      {formatCurrency(order.amount)}
+                    </span>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[order.status] || "bg-gray-100 text-gray-700"}`}
+                    >
+                      {order.status}
+                    </span>
+                  </div>
+                </div>
+
+                {order.digitalDownloadUrl && (
+                  <div className="mt-3">
+                    <a
+                      href={order.digitalDownloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      ↓ Download file
+                    </a>
+                  </div>
+                )}
+
+                {order.trackingNumber && (
+                  <div className="mt-3">
+                    <p className="text-xs font-medium text-muted-foreground">Tracking</p>
+                    <p className="text-sm font-mono text-foreground">{order.trackingNumber}</p>
+                  </div>
+                )}
+
+                {canDispute(order) && order.status !== "disputed" && (
+                  <div className="mt-4 border-t border-border pt-4">
+                    {disputing === order.orderId ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Reason for dispute"
+                          value={disputeReason}
+                          onChange={(e) => setDisputeReason(e.target.value)}
+                          className="flex-1 rounded-lg border border-border bg-white px-3 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                        <button
+                          onClick={() => handleDispute(order.orderId)}
+                          disabled={!disputeReason.trim()}
+                          className="rounded-lg bg-yellow-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-yellow-700 disabled:opacity-50"
+                        >
+                          Submit
+                        </button>
+                        <button
+                          onClick={() => { setDisputing(null); setDisputeReason(""); }}
+                          className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setDisputing(order.orderId)}
+                        className="text-xs text-muted-foreground underline hover:text-foreground"
+                      >
+                        Open dispute
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {order.status === "disputed" && (
+                  <p className="mt-3 text-xs text-yellow-700">
+                    Dispute opened{order.disputeReason ? `: ${order.disputeReason}` : ""}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         ) : (
           <div className="space-y-4">

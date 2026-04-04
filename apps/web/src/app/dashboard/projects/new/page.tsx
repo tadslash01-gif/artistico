@@ -31,6 +31,28 @@ export default function NewProjectPage() {
   const [tags, setTags] = useState("");
   const [materialsUsed, setMaterialsUsed] = useState("");
   const [creatorStory, setCreatorStory] = useState("");
+
+  // Structured materials list
+  const [materials, setMaterials] = useState<
+    { name: string; quantity: string; unit: string; estimatedPrice: string; url: string; notes: string }[]
+  >([]);
+
+  const addMaterial = () => {
+    setMaterials((prev) => [
+      ...prev,
+      { name: "", quantity: "1", unit: "pcs", estimatedPrice: "", url: "", notes: "" },
+    ]);
+  };
+
+  const updateMaterial = (index: number, field: string, value: string) => {
+    setMaterials((prev) =>
+      prev.map((m, i) => (i === index ? { ...m, [field]: value } : m))
+    );
+  };
+
+  const removeMaterial = (index: number) => {
+    setMaterials((prev) => prev.filter((_, i) => i !== index));
+  };
   const [useCase, setUseCase] = useState("");
   const [difficulty, setDifficulty] = useState("");
   const [timeToBuild, setTimeToBuild] = useState("");
@@ -142,6 +164,16 @@ export default function NewProjectPage() {
           .split(",")
           .map((m) => m.trim())
           .filter(Boolean),
+        materials: materials
+          .filter((m) => m.name.trim())
+          .map((m) => ({
+            name: m.name.trim(),
+            quantity: parseFloat(m.quantity) || 0,
+            unit: m.unit.trim() || "pcs",
+            estimatedPrice: m.estimatedPrice ? Math.round(parseFloat(m.estimatedPrice) * 100) : null,
+            url: m.url.trim() || null,
+            notes: m.notes.trim() || null,
+          })),
         tags: tags
           .split(",")
           .map((t) => t.trim())
@@ -263,6 +295,102 @@ export default function NewProjectPage() {
             placeholder="oak wood, epoxy resin, brass hardware (comma separated)"
             className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
+        </div>
+
+        {/* Structured Materials List */}
+        <div>
+          <label className="block text-sm font-medium text-foreground">
+            Detailed Materials List{" "}
+            <span className="text-muted-foreground font-normal">(optional — helps buyers plan)</span>
+          </label>
+          <div className="mt-2 space-y-3">
+            {materials.map((mat, i) => (
+              <div key={i} className="rounded-lg border border-border bg-white p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">Material {i + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeMaterial(i)}
+                    className="text-xs text-destructive hover:text-destructive/80"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Name *"
+                    value={mat.name}
+                    onChange={(e) => updateMaterial(i, "name", e.target.value)}
+                    className="col-span-3 rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Qty"
+                    min="0"
+                    step="any"
+                    value={mat.quantity}
+                    onChange={(e) => updateMaterial(i, "quantity", e.target.value)}
+                    className="rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <select
+                    title="Unit of measurement"
+                    value={mat.unit}
+                    onChange={(e) => updateMaterial(i, "unit", e.target.value)}
+                    className="rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="pcs">pcs</option>
+                    <option value="ft">ft</option>
+                    <option value="in">in</option>
+                    <option value="m">m</option>
+                    <option value="cm">cm</option>
+                    <option value="oz">oz</option>
+                    <option value="lb">lb</option>
+                    <option value="g">g</option>
+                    <option value="kg">kg</option>
+                    <option value="ml">ml</option>
+                    <option value="L">L</option>
+                    <option value="rolls">rolls</option>
+                    <option value="sheets">sheets</option>
+                    <option value="other">other</option>
+                  </select>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                    <input
+                      type="number"
+                      placeholder="Price"
+                      min="0"
+                      step="0.01"
+                      value={mat.estimatedPrice}
+                      onChange={(e) => updateMaterial(i, "estimatedPrice", e.target.value)}
+                      className="w-full rounded border border-border bg-white pl-5 pr-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+                <input
+                  type="url"
+                  placeholder="Link to purchase (optional)"
+                  value={mat.url}
+                  onChange={(e) => updateMaterial(i, "url", e.target.value)}
+                  className="w-full rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <input
+                  type="text"
+                  placeholder="Notes (optional)"
+                  value={mat.notes}
+                  onChange={(e) => updateMaterial(i, "notes", e.target.value)}
+                  className="w-full rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addMaterial}
+              className="rounded-lg border border-dashed border-border px-4 py-2 text-sm text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
+            >
+              + Add Material
+            </button>
+          </div>
         </div>
 
         {/* Storytelling Fields */}

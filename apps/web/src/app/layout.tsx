@@ -25,7 +25,7 @@ const playfairDisplay = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://artistico.redphantomops.com"),
+  metadataBase: new URL("https://artistico.love"),
   title: {
     default: "Artistico — Marketplace for Hobby Creators",
     template: "%s | Artistico",
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
     title: "Artistico — Marketplace for Hobby Creators",
     description:
       "A low-fee marketplace where hobby creators sell crafts, DIY projects, digital assets, and more.",
-    url: "https://artistico.redphantomops.com",
+    url: "https://artistico.love",
     images: [{ url: "/og-image.svg", width: 1200, height: 630, alt: "Artistico" }],
   },
   twitter: {

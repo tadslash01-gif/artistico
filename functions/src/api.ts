@@ -18,7 +18,22 @@ import {
   SaveProjectSchema,
   FollowCreatorSchema,
   UpdateNotificationPrefsSchema,
+  CreateReportSchema,
+  PROJECT_CATEGORIES,
 } from "@artistico/shared";
+
+/** Strip HTML/script tags from user-supplied text to prevent stored XSS. */
+function stripHtml(str: string): string {
+  // Decode HTML entities first, then strip tags to prevent encoded XSS bypasses
+  const decoded = str
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&(lt|gt|amp|quot|apos);/g, (_, entity) => {
+      const map: Record<string, string> = { lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" };
+      return map[entity] || "";
+    });
+  return decoded.replace(/<[^>]*>/g, "").trim();
+}
 
 /**
  * Defense-in-depth: verify the authenticated user has creator role.
@@ -71,9 +86,11 @@ const routes: Record<string, RouteHandler> = {
       res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
       return;
     }
-    const { title, description, images, materialsUsed, tags, category, creatorStory, useCase, difficulty, timeToBuild } = parsed.data;
+    const { title, description, images, materialsUsed, materials, tags, category, creatorStory, useCase, difficulty, timeToBuild } = parsed.data;
+    const safeTitle = stripHtml(title);
+    const safeDescription = stripHtml(description);
     const slug =
-      title
+      safeTitle
         .toLowerCase()
         .replace(/[^\w\s-]/g, "")
         .replace(/\s+/g, "-") +
@@ -84,15 +101,16 @@ const routes: Record<string, RouteHandler> = {
     const project = {
       projectId: projectRef.id,
       creatorId: req.user!.uid,
-      title,
+      title: safeTitle,
       slug,
-      description,
+      description: safeDescription,
       images: images || [],
       materialsUsed: materialsUsed || [],
+      materials: materials || [],
       tags: tags || [],
       category,
-      creatorStory: creatorStory || null,
-      useCase: useCase || null,
+      creatorStory: creatorStory ? stripHtml(creatorStory) : null,
+      useCase: useCase ? stripHtml(useCase) : null,
       difficulty: difficulty || null,
       timeToBuild: timeToBuild || null,
       savesCount: 0,
@@ -113,7 +131,13 @@ const routes: Record<string, RouteHandler> = {
     const { category, status, creatorId, difficulty, sort, search, limit: limitStr, startAfter } = req.query;
     let query: admin.firestore.Query = db.collection("projects");
 
-    if (category) query = query.where("category", "==", category);
+    if (category) {
+      if (!PROJECT_CATEGORIES.includes(category as any)) {
+        res.status(400).json({ error: "Invalid category" });
+        return;
+      }
+      query = query.where("category", "==", category);
+    }
     if (creatorId) query = query.where("creatorId", "==", creatorId);
 
     // Public queries only see published projects unless filtered by creator
@@ -194,11 +218,17 @@ const routes: Record<string, RouteHandler> = {
       return;
     }
 
+    const updateData = { ...parsed.data } as Record<string, unknown>;
+    if (updateData.title) updateData.title = stripHtml(updateData.title as string);
+    if (updateData.description) updateData.description = stripHtml(updateData.description as string);
+    if (updateData.creatorStory) updateData.creatorStory = stripHtml(updateData.creatorStory as string);
+    if (updateData.useCase) updateData.useCase = stripHtml(updateData.useCase as string);
+
     await db
       .collection("projects")
       .doc(projectId)
       .update({
-        ...parsed.data,
+        ...updateData,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     res.json({ success: true });
@@ -233,7 +263,7 @@ const routes: Record<string, RouteHandler> = {
       res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
       return;
     }
-    const { projectId, title, description, type, price, category, images, digitalFileUrl, inventory, shippingRequired, shippingDetails, commissionDetails } = parsed.data;
+    const { projectId, title, description, type, licenseType, price, category, images, digitalFileUrl, inventory, shippingRequired, shippingDetails, commissionDetails } = parsed.data;
 
     // If projectId is provided, verify the project belongs to this creator
     if (projectId) {
@@ -249,9 +279,10 @@ const routes: Record<string, RouteHandler> = {
       productId: productRef.id,
       projectId: projectId || null,
       creatorId: req.user!.uid,
-      title,
-      description,
+      title: stripHtml(title),
+      description: stripHtml(description),
       type,
+      licenseType: licenseType || "personal",
       price, // cents
       currency: "usd",
       category: category || null,
@@ -458,6 +489,7 @@ const routes: Record<string, RouteHandler> = {
       const review = {
         reviewId: reviewRef.id,
         ...parsed.data,
+        body: stripHtml(parsed.data.body),
         buyerId: req.user!.uid,
         creatorId: order.creatorId,
         images: parsed.data.images || null,
@@ -569,8 +601,8 @@ const routes: Record<string, RouteHandler> = {
       .update({
         isCreator: true,
         creatorProfile: {
-          bio,
-          location,
+          bio: stripHtml(bio),
+          location: location ? stripHtml(location) : location,
           specialties: specialties || [],
           socialLinks: socialLinks || [],
           stripeAccountId: "",
@@ -880,6 +912,81 @@ const routes: Record<string, RouteHandler> = {
 
     res.json(updated);
   },
+
+  // ─── Reports ──────────────────────────────────────────
+  "POST /reports": async (req, res) => {
+    const parsed = CreateReportSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
+      return;
+    }
+    const { targetType, targetId, reason, description } = parsed.data;
+
+    // Prevent duplicate reports from same user on same target
+    const existing = await db
+      .collection("reports")
+      .where("reporterId", "==", req.user!.uid)
+      .where("targetId", "==", targetId)
+      .limit(1)
+      .get();
+    if (!existing.empty) {
+      res.status(409).json({ error: "You have already reported this content" });
+      return;
+    }
+
+    const reportRef = db.collection("reports").doc();
+    await reportRef.set({
+      reportId: reportRef.id,
+      reporterId: req.user!.uid,
+      targetType,
+      targetId,
+      reason,
+      description: description ? stripHtml(description) : null,
+      status: "pending",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    res.status(201).json({ reportId: reportRef.id });
+  },
+
+  // ─── Disputes ─────────────────────────────────────────
+  "POST /orders/:orderId/dispute": async (req, res) => {
+    const orderId = req.params!.orderId;
+    const doc = await db.collection("orders").doc(orderId).get();
+    if (!doc.exists) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+    const order = doc.data()!;
+    if (order.buyerId !== req.user!.uid) {
+      res.status(403).json({ error: "Only the buyer can open a dispute" });
+      return;
+    }
+    if (order.status === "disputed" || order.status === "refunded") {
+      res.status(400).json({ error: "Order already disputed or refunded" });
+      return;
+    }
+    // Check dispute window (7 days for digital, 14 days for physical)
+    const paidAt = order.paidAt?.toDate?.() || (order.paidAt?.seconds ? new Date(order.paidAt.seconds * 1000) : null);
+    if (!paidAt) {
+      res.status(400).json({ error: "Order has not been paid" });
+      return;
+    }
+    const windowDays = order.shippingAddress ? 14 : 7;
+    const deadline = new Date(paidAt.getTime() + windowDays * 24 * 60 * 60 * 1000);
+    if (new Date() > deadline) {
+      res.status(400).json({ error: `Dispute window has closed (${windowDays} days after purchase)` });
+      return;
+    }
+    await db.collection("orders").doc(orderId).update({
+      status: "disputed",
+      disputeReason: req.body.reason ? stripHtml(String(req.body.reason)) : null,
+      disputeOpenedAt: admin.firestore.FieldValue.serverTimestamp(),
+      disputeDeadline: admin.firestore.Timestamp.fromDate(deadline),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    auditLog({ action: "dispute.opened", uid: req.user!.uid, targetResource: orderId, ip: req.ip, userAgent: req.headers["user-agent"] });
+    res.json({ success: true, disputeDeadline: deadline.toISOString() });
+  },
 };
 
 import * as admin from "firebase-admin";
@@ -888,7 +995,7 @@ import cors from "cors";
 const ALLOWED_ORIGINS = [
   "https://artistico-78f75.web.app",
   "https://artistico-78f75.firebaseapp.com",
-  "https://artistico.redphantomops.com",
+  "https://artistico.love",
   "https://artistico--artistico-78f75.us-central1.hosted.app",
   ...(process.env.FUNCTIONS_EMULATOR === "true" ? ["http://localhost:3000"] : []),
 ];

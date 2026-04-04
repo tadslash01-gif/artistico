@@ -9,6 +9,7 @@ export type AuditAction =
   | "account.delete"
   | "creator.promote"
   | "order.create"
+  | "dispute.opened"
   | "stripe.account.create"
   | "download.access"
   | "stripe.onboarding"

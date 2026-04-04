@@ -114,9 +114,20 @@ service cloud.firestore {
       allow delete: if isOwner(uid);
     }
 
-    // ─── Messages ────────────────────────────────────────
+    // ─── Reports ──────────────────────────────────────────────
+    match /reports/{reportId} {
+      // Reports are not publicly readable
+      allow read: if isAuthenticated()
+                  && request.auth.uid == resource.data.reporterId;
+      // Authenticated users can create reports
+      allow create: if isAuthenticated()
+                    && request.resource.data.reporterId == request.auth.uid
+                    && request.resource.data.status == 'pending';
+      allow update, delete: if false;
+    }
+
+    // ─── Messages ────────────────────────────────────────────
     match /messages/{conversationId} {
-      // Only participants can read/write
       allow read: if isAuthenticated()
                   && request.auth.uid in resource.data.participants;
       allow create: if isAuthenticated()

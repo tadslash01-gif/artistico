@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PROJECT_CATEGORIES } from "./types";
+import { PROJECT_CATEGORIES, LICENSE_TYPES } from "./types";
 import type { ProjectCategory } from "./types";
 
 // ─── Constants ───────────────────────────────────────────
@@ -39,12 +39,23 @@ export function formatCurrency(cents: number): string {
 
 // ─── Zod Schemas ─────────────────────────────────────────
 
+// Material item schema
+export const MaterialItemSchema = z.object({
+  name: z.string().min(1).max(200),
+  quantity: z.number().min(0),
+  unit: z.string().min(1).max(50),
+  estimatedPrice: z.number().int().min(0).nullable().optional(),
+  url: z.string().url().max(2000).nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
+});
+
 // Project schemas
 export const CreateProjectSchema = z.object({
   title: z.string().min(3).max(200),
   description: z.string().min(10).max(5000),
   images: z.array(z.string().url()).max(20).optional(),
   materialsUsed: z.array(z.string().max(100)).max(30).optional(),
+  materials: z.array(MaterialItemSchema).max(50).optional(),
   tags: z.array(z.string().max(50)).max(20).optional(),
   category: z.enum(PROJECT_CATEGORIES),
   creatorStory: z.string().min(10).max(500).nullable().optional(),
@@ -58,6 +69,7 @@ export const UpdateProjectSchema = z.object({
   description: z.string().min(10).max(5000).optional(),
   images: z.array(z.string().url()).max(20).optional(),
   materialsUsed: z.array(z.string().max(100)).max(30).optional(),
+  materials: z.array(MaterialItemSchema).max(50).optional(),
   tags: z.array(z.string().max(50)).max(20).optional(),
   category: z.enum(PROJECT_CATEGORIES).optional(),
   status: z.enum(["draft", "published", "archived"]).optional(),
@@ -73,6 +85,7 @@ export const CreateProductSchema = z.object({
   title: z.string().min(3).max(200),
   description: z.string().min(10).max(5000),
   type: z.enum(["physical", "digital", "template", "commission"]),
+  licenseType: z.enum(LICENSE_TYPES).optional(),
   price: z.number().int().min(50), // minimum 50 cents
   category: z.enum(PROJECT_CATEGORIES).optional(),
   images: z.array(z.string().url()).max(20).optional(),
@@ -98,6 +111,7 @@ export const CreateProductSchema = z.object({
 export const UpdateProductSchema = z.object({
   title: z.string().min(3).max(200).optional(),
   description: z.string().min(10).max(5000).optional(),
+  licenseType: z.enum(LICENSE_TYPES).optional(),
   price: z.number().int().min(50).optional(),
   images: z.array(z.string().url()).max(20).optional(),
   digitalFileUrl: z.string().url().nullable().optional(),
