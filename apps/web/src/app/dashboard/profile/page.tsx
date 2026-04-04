@@ -28,16 +28,18 @@ export default function ProfilePage() {
   const [success, setSuccess] = useState("");
   const [initialized, setInitialized] = useState(false);
 
-  // Initialize form from user data once loaded
+  // Initialize form from user data once loaded (including creator profile)
   if (user && userData && !initialized) {
     setDisplayName(userData.displayName || "");
     setPhotoURL(userData.photoURL || null);
+    if (userData.creatorProfile) {
+      setBio(userData.creatorProfile.bio || "");
+      setLocation(userData.creatorProfile.location || "");
+      setSpecialties(
+        (userData.creatorProfile.specialties || []).join(", ")
+      );
+    }
     setInitialized(true);
-  }
-
-  // Load creator profile data
-  if (userData?.isCreator && !bio && !initialized) {
-    // Creator data will be fetched from the extended userData
   }
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -274,6 +276,7 @@ export default function ProfilePage() {
             <input
               id="location"
               type="text"
+              required
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="City, State or Country"
@@ -288,6 +291,7 @@ export default function ProfilePage() {
             <input
               id="specialties"
               type="text"
+              required
               value={specialties}
               onChange={(e) => setSpecialties(e.target.value)}
               placeholder="woodworking, digital art, ceramics (comma separated)"
