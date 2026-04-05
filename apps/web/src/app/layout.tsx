@@ -4,7 +4,6 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { AdScript } from "@/components/ads/AdScript";
-import { GlobalFooterAd } from "@/components/ads/GlobalFooterAd";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -76,14 +75,15 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col pb-[52px] lg:pb-0">
+      <head>
+        <AdScript />
+      </head>
+      <body className="min-h-full flex flex-col">
         <AuthProvider>
           <Header />
           <main className="flex-1">{children}</main>
           <Footer />
         </AuthProvider>
-        <GlobalFooterAd />
-        <AdScript />
       </body>
     </html>
   );

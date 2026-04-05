@@ -6,7 +6,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiFetch } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
 import ReviewForm from "@/components/ReviewForm";
-import { InlineBannerAd } from "@/components/ads/InlineBannerAd";
 import { doc, getDoc } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 
@@ -220,9 +219,6 @@ export default function OrderSuccessPage({
           </p>
         </div>
       )}
-
-      {/* Ad */}
-      <InlineBannerAd slot="INLINE_ORDER_SUCCESS" className="my-4" />
 
       {/* Actions */}
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">

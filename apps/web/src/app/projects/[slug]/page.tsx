@@ -14,10 +14,6 @@ import ShareButton from "@/components/ShareButton";
 import FollowButton from "@/components/FollowButton";
 import DifficultyBadge from "@/components/DifficultyBadge";
 import VerifiedBadge from "@/components/VerifiedBadge";
-import { SidebarAd } from "@/components/ads/SidebarAd";
-import { SidebarAdLeft } from "@/components/ads/SidebarAdLeft";
-import { InlineBannerAd } from "@/components/ads/InlineBannerAd";
-import { AD_SLOTS } from "@/lib/adSlots";
 import {
   collection,
   query,
@@ -285,12 +281,9 @@ export default function ProjectDetailPage({
         <span className="text-foreground">{project.title}</span>
       </nav>
 
-      <div className="grid gap-10 lg:grid-cols-3 xl:grid-cols-[160px_1fr_1fr_300px]">
-        {/* Left sidebar ad (xl desktop) */}
-        <SidebarAdLeft slot={AD_SLOTS.SIDEBAR_LEFT} className="hidden xl:block lg:hidden" />
-
+      <div className="grid gap-10 lg:grid-cols-3">
         {/* Left Column: Images + Description */}
-        <div className="lg:col-span-2 xl:col-span-2">
+        <div className="lg:col-span-2">
           {/* Image Gallery */}
           {project.images.length > 0 ? (
             <div>
@@ -650,9 +643,6 @@ export default function ProjectDetailPage({
               </div>
             )}
           </div>
-          {/* Ad below reviews */}
-          <InlineBannerAd slot={AD_SLOTS.INLINE_PROJECT} className="mt-8" />
-
           {/* Related Projects */}
           <RelatedProjects category={project.category} excludeProjectId={project.projectId} />
         </div>
@@ -808,9 +798,6 @@ export default function ProjectDetailPage({
               </div>
             )}
           </div>
-
-          {/* Sidebar ad below products */}
-          <SidebarAd slot={AD_SLOTS.SIDEBAR_PROJECT} />
         </div>
       </div>
     </div>

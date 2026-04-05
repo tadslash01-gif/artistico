@@ -14,11 +14,6 @@ import {
   DocumentSnapshot,
 } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
-import { SidebarAd } from "@/components/ads/SidebarAd";
-import { SidebarAdLeft } from "@/components/ads/SidebarAdLeft";
-import { InlineBannerAd } from "@/components/ads/InlineBannerAd";
-import { InFeedAd } from "@/components/ads/InFeedAd";
-import { AD_SLOTS } from "@/lib/adSlots";
 import ProjectCard from "@/components/ProjectCard";
 import BrowseScrollRow from "@/components/BrowseScrollRow";
 
@@ -273,11 +268,8 @@ function BrowseContent() {
         </div>
       </div>
 
-      {/* Project Grid + Sidebar Ads */}
-      <div className="mt-8 grid gap-8 lg:grid-cols-[160px_1fr_300px]">
-        {/* Left sidebar ad (desktop) */}
-        <SidebarAdLeft slot={AD_SLOTS.SIDEBAR_LEFT} />
-
+      {/* Project Grid */}
+      <div className="mt-8">
         <div className="min-w-0">
         {loading ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -307,10 +299,6 @@ function BrowseContent() {
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {projects.map((project, index) => (
                 <React.Fragment key={project.projectId}>
-                  {/* In-feed ad every 8 items (only when ≥12 results) */}
-                  {index > 0 && index % 8 === 0 && projects.length >= 12 && (
-                    <InFeedAd slot={AD_SLOTS.INFEED_BROWSE} />
-                  )}
                   <ProjectCard project={project} />
                 </React.Fragment>
               ))}
@@ -329,16 +317,10 @@ function BrowseContent() {
               </div>
             )}
 
-            {/* Inline ad on mobile after project grid */}
-            <div className="mt-8 lg:hidden">
-              <InlineBannerAd slot={AD_SLOTS.INLINE_BROWSE} />
-            </div>
           </>
         )}
         </div>
 
-        {/* Desktop right sidebar ad */}
-        <SidebarAd slot={AD_SLOTS.SIDEBAR_RIGHT} />
       </div>
     </div>
   );

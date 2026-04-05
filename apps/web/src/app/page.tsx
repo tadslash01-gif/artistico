@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { InlineBannerAd } from "@/components/ads/InlineBannerAd";
-import { AD_SLOTS } from "@/lib/adSlots";
 import { ArtisticoLogo } from "@/components/branding/ArtisticoLogo";
 import TrendingProjects from "@/components/TrendingProjects";
 import NewCreators from "@/components/NewCreators";
@@ -85,9 +83,6 @@ export default function Home() {
           ))}
         </div>
       </section>
-
-      {/* Ad */}
-      <InlineBannerAd slot={AD_SLOTS.INLINE_HOME} className="my-4" />
 
       {/* Trending Projects */}
       <section className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
