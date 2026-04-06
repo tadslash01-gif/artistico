@@ -48,11 +48,20 @@ export default function SignUpPage() {
 
   const handleGoogle = async () => {
     setError("");
+
+    if (!termsAccepted) {
+      setError("Please read and accept the Terms and Conditions.");
+      return;
+    }
+
+    setLoading(true);
     try {
       await signInWithGoogle();
       router.push("/");
     } catch (err: any) {
       setError(err.message || "Failed to sign in with Google");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -160,8 +169,9 @@ export default function SignUpPage() {
             </div>
           </div>
           <button
+            type="button"
             onClick={handleGoogle}
-            disabled={!termsAccepted}
+            disabled={loading}
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d6cfc7] bg-white px-4 py-3 text-sm font-medium text-foreground shadow-sm hover:bg-muted disabled:opacity-50 transition-colors"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24">
@@ -176,7 +186,7 @@ export default function SignUpPage() {
 
         {!termsAccepted && (
           <p className="mt-6 text-center text-xs text-muted-foreground">
-            Please accept the Terms of Service above to continue.
+            Please accept the Terms of Service to create your account.
           </p>
         )}
       </div>
