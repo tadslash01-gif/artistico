@@ -23,7 +23,7 @@ const CATEGORIES = [
 ];
 
 export default function NewProjectPage() {
-  const { user } = useAuth();
+  const { user, userData } = useAuth();
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -156,6 +156,8 @@ export default function NewProjectPage() {
       await setDoc(projectRef, {
         projectId: projectRef.id,
         creatorId: user.uid,
+        creatorName: userData?.displayName || user.displayName || "",
+        creatorAvatar: userData?.photoURL ?? user.photoURL ?? null,
         title,
         slug,
         description,
@@ -208,6 +210,15 @@ export default function NewProjectPage() {
         Share a project you&apos;ve been working on. You can add products to it after
         creating.
       </p>
+
+      {!userData?.isCreator && (
+        <div className="mt-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+          You need a creator account to create projects.{" "}
+          <a href="/become-creator" className="font-semibold underline hover:no-underline">
+            Become a creator →
+          </a>
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -497,7 +508,7 @@ export default function NewProjectPage() {
         <div className="flex items-center gap-3">
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !userData?.isCreator}
             className="rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
             {loading ? "Creating..." : "Create Project"}

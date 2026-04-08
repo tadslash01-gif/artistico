@@ -119,6 +119,8 @@ export interface Product {
   productId: string;
   projectId: string | null;
   creatorId: string;
+  creatorName?: string;
+  creatorAvatar?: string | null;
   category: string | null;
   title: string;
   description: string;
@@ -134,6 +136,8 @@ export interface Product {
   commissionDetails: CommissionDetails | null;
   status: ProductStatus;
   salesCount: number;
+  viewCount: number;
+  trendingScore: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

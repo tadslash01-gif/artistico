@@ -275,10 +275,14 @@ const routes: Record<string, RouteHandler> = {
     }
 
     const productRef = db.collection("products").doc();
+    const userDoc = await db.collection("users").doc(req.user!.uid).get();
+    const userData = userDoc.data();
     const product = {
       productId: productRef.id,
       projectId: projectId || null,
       creatorId: req.user!.uid,
+      creatorName: userData?.displayName || null,
+      creatorAvatar: userData?.photoURL || null,
       title: stripHtml(title),
       description: stripHtml(description),
       type,
@@ -294,6 +298,8 @@ const routes: Record<string, RouteHandler> = {
       commissionDetails: commissionDetails || null,
       status: "active",
       salesCount: 0,
+      viewCount: 0,
+      trendingScore: 70, // full recency boost at creation; trigger will maintain ongoing
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };

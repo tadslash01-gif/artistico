@@ -5,8 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
 import RelatedProjects from "@/components/RelatedProjects";
-import { apiFetch } from "@/lib/api";
 import { formatCurrency, timeAgo } from "@/lib/utils";
+import { apiFetch } from "@/lib/api";
 import InquiryForm from "@/components/InquiryForm";
 import ReviewForm from "@/components/ReviewForm";
 import SaveButton from "@/components/SaveButton";
@@ -120,7 +120,6 @@ export default function ProjectDetailPage({
   const [creator, setCreator] = useState<CreatorData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [buyingProduct, setBuyingProduct] = useState<string | null>(null);
   const [showInquiry, setShowInquiry] = useState(false);
   const [userOrder, setUserOrder] = useState<{ orderId: string; productId: string } | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
@@ -202,33 +201,6 @@ export default function ProjectDetailPage({
     }
     checkUserOrder();
   }, [user, project]);
-
-  const handleBuy = async (productId: string) => {
-    if (!user) {
-      window.location.href = "/login";
-      return;
-    }
-    setBuyingProduct(productId);
-    try {
-      const { url } = await apiFetch<{ url: string }>(
-        "/checkout/create-session",
-        {
-          method: "POST",
-          body: JSON.stringify({ productId }),
-        }
-      );
-      // Validate redirect URL points to Stripe checkout
-      try {
-        const parsed = new URL(url);
-        if (!parsed.hostname.endsWith("stripe.com")) throw new Error();
-      } catch { throw new Error("Invalid checkout URL"); }
-      window.location.href = url;
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to start checkout");
-    } finally {
-      setBuyingProduct(null);
-    }
-  };
 
   if (loading) {
     return (
@@ -729,9 +701,10 @@ export default function ProjectDetailPage({
             ) : (
               <div className="mt-3 space-y-4">
                 {products.map((product) => (
-                  <div
+                  <Link
                     key={product.productId}
-                    className="rounded-xl border border-border bg-white p-4"
+                    href={`/products/${product.productId}`}
+                    className="block rounded-xl border border-border bg-white p-4 hover:border-primary/40 hover:shadow-md transition-all"
                   >
                     {product.images?.[0] && (
                       <div className="relative mb-3 aspect-[3/2] overflow-hidden rounded-lg bg-muted">
@@ -779,21 +752,10 @@ export default function ProjectDetailPage({
                       </p>
                     )}
 
-                    <button
-                      onClick={() => handleBuy(product.productId)}
-                      disabled={
-                        buyingProduct === product.productId ||
-                        (product.inventory !== null && product.inventory <= 0)
-                      }
-                      className="mt-3 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                    >
-                      {buyingProduct === product.productId
-                        ? "Redirecting..."
-                        : product.inventory !== null && product.inventory <= 0
-                          ? "Sold Out"
-                          : "Buy Now"}
-                    </button>
-                  </div>
+                    <p className="mt-3 text-xs font-medium text-primary">
+                      View product →
+                    </p>
+                  </Link>
                 ))}
               </div>
             )}

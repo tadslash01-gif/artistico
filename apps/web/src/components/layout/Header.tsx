@@ -11,8 +11,11 @@ export function Header() {
     <header className="border-b border-border bg-white">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
-        <Link href="/" className="flex items-center">
+        <Link href="/" className="flex items-center gap-2">
           <ArtisticoLogo size="sm" />
+          <span className="hidden sm:inline text-sm text-muted-foreground italic select-none">
+            ...For the love of creating!
+          </span>
         </Link>
 
         {/* Navigation */}

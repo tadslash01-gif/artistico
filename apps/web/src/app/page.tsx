@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArtisticoLogo } from "@/components/branding/ArtisticoLogo";
 import TrendingProjects from "@/components/TrendingProjects";
+import TrendingProducts from "@/components/TrendingProducts";
+import NewProducts from "@/components/NewProducts";
 import NewCreators from "@/components/NewCreators";
 import FeaturedCreators from "@/components/FeaturedCreators";
 import RecentlyAdded from "@/components/RecentlyAdded";
@@ -104,6 +106,50 @@ export default function Home() {
             className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
           >
             See all trending →
+          </Link>
+        </div>
+      </section>
+
+      {/* Trending Products */}
+      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-2xl" aria-hidden="true">🔥</span>
+          <h2 className="text-2xl font-bold text-foreground sm:text-3xl">
+            Trending Products This Week
+          </h2>
+        </div>
+        <p className="mb-8 text-muted-foreground">
+          Top-selling items from our creator community
+        </p>
+        <TrendingProducts />
+        <div className="mt-6">
+          <Link
+            href="/browse?tab=products&sort=trending"
+            className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            Browse all trending products →
+          </Link>
+        </div>
+      </section>
+
+      {/* New Products */}
+      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-2xl" aria-hidden="true">✨</span>
+          <h2 className="text-2xl font-bold text-foreground sm:text-3xl">
+            New Products This Week
+          </h2>
+        </div>
+        <p className="mb-8 text-muted-foreground">
+          Fresh creations just listed by our makers
+        </p>
+        <NewProducts />
+        <div className="mt-6">
+          <Link
+            href="/browse?tab=products&sort=newest"
+            className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            Browse all new products →
           </Link>
         </div>
       </section>

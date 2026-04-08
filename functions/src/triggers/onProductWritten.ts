@@ -2,15 +2,42 @@ import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { db } from "../admin";
 
 /**
- * When a product is created, updated, or deleted, denormalize
- * minPrice, creatorName, and creatorAvatar onto the parent project doc.
- * This avoids N+1 queries when listing projects with price/creator info.
+ * When a product is created, updated, or deleted:
+ *   1. Compute and write trendingScore on the product itself.
+ *   2. Denormalize minPrice, productCount, creatorName, and creatorAvatar onto
+ *      the parent project doc.
+ *
+ * trendingScore algorithm:
+ *   salesCount × 10 + max(0, 70 − 10 × days_since_created)
+ * This gives new products a head-start (up to +70) that decays to 0 after 7 days,
+ * then purely reflects sales volume.
  */
+function computeTrendingScore(salesCount: number, createdAtSeconds: number): number {
+  const daysSinceCreated = (Date.now() / 1000 - createdAtSeconds) / 86400;
+  const recencyBoost = Math.max(0, 70 - Math.floor(daysSinceCreated) * 10);
+  return salesCount * 10 + recencyBoost;
+}
+
 export const onProductWritten = onDocumentWritten("products/{productId}", async (event) => {
   const after = event.data?.after?.data();
   const before = event.data?.before?.data();
 
-  // Determine the projectId from whichever snapshot exists
+  // ── 1. Update trendingScore on the product itself ──────────────
+  if (after) {
+    const salesCount = (after.salesCount as number) || 0;
+    const createdAtSeconds = (after.createdAt?.seconds as number) || Date.now() / 1000;
+    const newScore = computeTrendingScore(salesCount, createdAtSeconds);
+    const currentScore = (after.trendingScore as number) ?? -1;
+
+    // Only write when the score has actually changed (prevents trigger loops)
+    const salesCountChanged = !before || before.salesCount !== after.salesCount;
+    const isNew = !before;
+    if ((isNew || salesCountChanged) && currentScore !== newScore) {
+      await event.data!.after!.ref.update({ trendingScore: newScore });
+    }
+  }
+
+  // ── 2. Denormalize onto parent project (if product is linked) ──
   const projectId = after?.projectId || before?.projectId;
   if (!projectId) return;
 
@@ -39,7 +66,7 @@ export const onProductWritten = onDocumentWritten("products/{productId}", async 
   const creatorDoc = await db.collection("users").doc(projectData.creatorId).get();
   const creatorData = creatorDoc.exists ? creatorDoc.data()! : null;
 
-  const updates: Record<string, any> = {
+  const updates: Record<string, unknown> = {
     minPrice,
     productCount: productsSnap.size,
     creatorName: creatorData?.displayName || "Unknown",
