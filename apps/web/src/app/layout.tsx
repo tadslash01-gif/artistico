@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Playfair_Display } from "next/font/google";
+import { Geist, Playfair_Display, Cormorant_Garamond } from "next/font/google";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -15,6 +15,13 @@ const playfairDisplay = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
   weight: ["700"],
+  style: ["italic"],
+});
+
+const cormorantGaramond = Cormorant_Garamond({
+  variable: "--font-cormorant",
+  subsets: ["latin"],
+  weight: ["400"],
   style: ["italic"],
 });
 
@@ -68,7 +75,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${playfairDisplay.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${playfairDisplay.variable} ${cormorantGaramond.variable} h-full antialiased`}
     >
       <head>
         <AdScript />

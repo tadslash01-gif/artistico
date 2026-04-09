@@ -215,6 +215,8 @@ function BrowseContent() {
       {/* Search */}
       <div className="mt-6">
         <input
+          id="browse-search"
+          name="q"
           type="search"
           placeholder="Search projects..."
           value={searchInput}

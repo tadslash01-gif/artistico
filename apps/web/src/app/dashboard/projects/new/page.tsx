@@ -318,6 +318,8 @@ export default function NewProjectPage() {
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <input
+                    id={`material-${i}-name`}
+                    name={`material-${i}-name`}
                     type="text"
                     placeholder="Name *"
                     value={mat.name}
@@ -325,6 +327,8 @@ export default function NewProjectPage() {
                     className="col-span-3 rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                   <input
+                    id={`material-${i}-qty`}
+                    name={`material-${i}-qty`}
                     type="number"
                     placeholder="Qty"
                     min="0"
@@ -334,6 +338,8 @@ export default function NewProjectPage() {
                     className="rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                   <select
+                    id={`material-${i}-unit`}
+                    name={`material-${i}-unit`}
                     title="Unit of measurement"
                     value={mat.unit}
                     onChange={(e) => updateMaterial(i, "unit", e.target.value)}
@@ -368,6 +374,8 @@ export default function NewProjectPage() {
                   </div>
                 </div>
                 <input
+                  id={`material-${i}-url`}
+                  name={`material-${i}-url`}
                   type="url"
                   placeholder="Link to purchase (optional)"
                   value={mat.url}
@@ -375,6 +383,8 @@ export default function NewProjectPage() {
                   className="w-full rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
                 <input
+                  id={`material-${i}-notes`}
+                  name={`material-${i}-notes`}
                   type="text"
                   placeholder="Notes (optional)"
                   value={mat.notes}

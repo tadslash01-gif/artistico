@@ -11,7 +11,7 @@ import {
   getDocs,
   doc,
   getDoc,
-  addDoc,
+  setDoc,
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
@@ -116,16 +116,15 @@ export default function MessagesPage() {
 
     setSending(true);
     try {
-      await addDoc(
-        collection(firestore, "messages", selectedConv, "entries"),
-        {
-          senderId: user.uid,
-          text: replyText.trim(),
-          attachments: null,
-          readAt: null,
-          sentAt: serverTimestamp(),
-        }
-      );
+      const entryRef = doc(collection(firestore, "messages", selectedConv, "entries"));
+      await setDoc(entryRef, {
+        entryId: entryRef.id,
+        senderId: user.uid,
+        text: replyText.trim(),
+        attachments: null,
+        readAt: null,
+        sentAt: serverTimestamp(),
+      });
 
       await updateDoc(doc(firestore, "messages", selectedConv), {
         lastMessage: {

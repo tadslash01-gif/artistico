@@ -10,9 +10,15 @@ export function Header() {
   return (
     <header className="border-b border-border bg-white">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Logo */}
-        <Link href="/" className="flex items-center">
+        {/* Logo + Tagline */}
+        <Link href="/" className="flex items-center gap-2.5">
           <ArtisticoLogo size="sm" />
+          <span
+            className="hidden md:block text-[13px] leading-none text-muted-foreground"
+            style={{ fontFamily: 'var(--font-cormorant)', fontStyle: 'italic', fontWeight: 400 }}
+          >
+            ...For the Love of Creating!
+          </span>
         </Link>
 
         {/* Navigation */}

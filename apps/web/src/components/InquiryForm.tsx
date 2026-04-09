@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { collection, addDoc, doc, getDoc, setDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
+import { collection, doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 
 interface InquiryFormProps {
@@ -77,7 +77,9 @@ export default function InquiryForm({
       }
 
       // Add the message entry
-      await addDoc(collection(firestore, "messages", conversationId, "entries"), {
+      const entryRef = doc(collection(firestore, "messages", conversationId, "entries"));
+      await setDoc(entryRef, {
+        entryId: entryRef.id,
         senderId: user.uid,
         text: messageText,
         attachments: null,

@@ -260,6 +260,8 @@ export default function CreatorProfilePage({
               <div className="rounded-lg border border-border bg-white p-4">
                 <h3 className="text-sm font-semibold text-foreground">Report Creator</h3>
                 <select
+                  id="report-reason"
+                  name="reason"
                   title="Report reason"
                   value={reportReason}
                   onChange={(e) => setReportReason(e.target.value)}
@@ -273,6 +275,8 @@ export default function CreatorProfilePage({
                   <option value="other">Other</option>
                 </select>
                 <textarea
+                  id="report-details"
+                  name="details"
                   value={reportDescription}
                   onChange={(e) => setReportDescription(e.target.value)}
                   placeholder="Additional details (optional)"
