@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import React, { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import {
   collection,
   query,
@@ -98,6 +98,7 @@ function BrowseContent() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
   const [searchInput, setSearchInput] = useState(searchQuery);
   const lastDocRef = useRef<DocumentSnapshot | null>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -125,7 +126,10 @@ function BrowseContent() {
     async (append = false) => {
       if (!firestore) return;
       if (append) setLoadingMore(true);
-      else setLoading(true);
+      else {
+        setLoading(true);
+        setFetchError(false);
+      }
 
       try {
         let q = query(
@@ -175,6 +179,7 @@ function BrowseContent() {
         }
       } catch (err) {
         console.error("Failed to fetch projects:", err);
+        if (!append) setFetchError(true);
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -194,7 +199,7 @@ function BrowseContent() {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
       router.push(buildUrl({ q: value }));
-    }, 400);
+    }, 600);
   };
 
   return (
@@ -270,8 +275,23 @@ function BrowseContent() {
 
       {/* Project Grid */}
       <div className="mt-8">
-        <div className="min-w-0">
-        {loading ? (
+        {fetchError ? (
+          <div className="py-20 text-center">
+            <span className="text-5xl" aria-hidden="true">⚠️</span>
+            <p className="mt-4 text-lg font-medium text-foreground">
+              Something went wrong loading projects.
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Check your connection and try again.
+            </p>
+            <button
+              onClick={() => fetchProjects(false)}
+              className="mt-4 rounded-xl border border-border bg-white px-6 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        ) : loading ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <div
@@ -297,10 +317,8 @@ function BrowseContent() {
         ) : (
           <>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {projects.map((project, index) => (
-                <React.Fragment key={project.projectId}>
-                  <ProjectCard project={project} />
-                </React.Fragment>
+              {projects.map((project) => (
+                <ProjectCard key={project.projectId} project={project} />
               ))}
             </div>
 
@@ -319,8 +337,6 @@ function BrowseContent() {
 
           </>
         )}
-        </div>
-
       </div>
     </div>
   );
