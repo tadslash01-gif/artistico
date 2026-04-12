@@ -126,6 +126,19 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ─── Notifications ───────────────────────────────────────
+    // Written by Cloud Functions (admin SDK) only.
+    // Recipients can read and mark as read.
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated()
+                  && request.auth.uid == resource.data.recipientId;
+      // Only the recipient can update (to mark read=true)
+      allow update: if isAuthenticated()
+                    && request.auth.uid == resource.data.recipientId
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["read"]);
+      allow create, delete: if false;
+    }
+
     // ─── Messages ────────────────────────────────────────────
     match /messages/{conversationId} {
       allow read: if isAuthenticated()

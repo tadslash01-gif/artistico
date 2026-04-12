@@ -46,6 +46,16 @@ interface ProjectData {
   creatorAvatar?: string | null;
 }
 
+interface UserSummary {
+  uid: string;
+  displayName: string;
+  photoURL: string | null;
+  isCreator: boolean;
+  followersCount: number;
+}
+
+type ProfileTab = "projects" | "followers" | "following";
+
 export default function CreatorProfilePage({
   params,
 }: {
@@ -61,6 +71,12 @@ export default function CreatorProfilePage({
   const [reportReason, setReportReason] = useState("");
   const [reportDescription, setReportDescription] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<ProfileTab>("projects");
+  const [followers, setFollowers] = useState<UserSummary[]>([]);
+  const [following, setFollowing] = useState<UserSummary[]>([]);
+  const [followersLoaded, setFollowersLoaded] = useState(false);
+  const [followingLoaded, setFollowingLoaded] = useState(false);
+  const [listsLoading, setListsLoading] = useState(false);
 
   useEffect(() => {
     async function fetchCreator() {
@@ -92,6 +108,34 @@ export default function CreatorProfilePage({
 
     fetchCreator();
   }, [uid]);
+
+  async function handleTabChange(tab: ProfileTab) {
+    setActiveTab(tab);
+    if (tab === "followers" && !followersLoaded) {
+      setListsLoading(true);
+      try {
+        const data: { followers: UserSummary[] } = await apiFetch(`/users/${uid}/followers`);
+        setFollowers(data.followers);
+        setFollowersLoaded(true);
+      } catch {
+        // silently fail — empty state shown
+      } finally {
+        setListsLoading(false);
+      }
+    }
+    if (tab === "following" && !followingLoaded) {
+      setListsLoading(true);
+      try {
+        const data: { following: UserSummary[] } = await apiFetch(`/users/${uid}/following`);
+        setFollowing(data.following);
+        setFollowingLoaded(true);
+      } catch {
+        // silently fail — empty state shown
+      } finally {
+        setListsLoading(false);
+      }
+    }
+  }
 
   if (loading) {
     return (
@@ -165,9 +209,18 @@ export default function CreatorProfilePage({
 
             {/* Stats bar */}
             <div className="mt-3 flex items-center justify-center gap-4 text-sm text-muted-foreground sm:justify-start">
-              <span>
+              <button
+                onClick={() => handleTabChange("followers")}
+                className="hover:text-foreground transition-colors"
+              >
                 <strong className="text-foreground">{creator.followersCount || 0}</strong> followers
-              </span>
+              </button>
+              <button
+                onClick={() => handleTabChange("following")}
+                className="hover:text-foreground transition-colors"
+              >
+                <strong className="text-foreground">{creator.followingCount || 0}</strong> following
+              </button>
               <span>
                 <strong className="text-foreground">{projects.length}</strong> projects
               </span>
@@ -240,7 +293,7 @@ export default function CreatorProfilePage({
                 onClick={() => setShowInquiry(true)}
                 className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
               >
-                \u2709\ufe0f Contact Creator
+                Contact Creator
               </button>
             )}
           </div>
@@ -329,24 +382,128 @@ export default function CreatorProfilePage({
         )}
       </div>
 
-      {/* Projects */}
-      <div className="mt-8">
-        <h2 className="text-xl font-bold text-foreground">
-          Projects ({projects.length})
-        </h2>
+      {/* Tab navigation */}
+      <div className="mt-8 border-b border-border">
+        <nav className="-mb-px flex gap-6" aria-label="Profile sections">
+          {(["projects", "followers", "following"] as ProfileTab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => handleTabChange(tab)}
+              className={`pb-3 text-sm font-medium transition-colors capitalize border-b-2 ${
+                activeTab === tab
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+              }`}
+            >
+              {tab === "projects"
+                ? `Projects (${projects.length})`
+                : tab === "followers"
+                  ? `Followers (${creator.followersCount || 0})`
+                  : `Following (${creator.followingCount || 0})`}
+            </button>
+          ))}
+        </nav>
+      </div>
 
-        {projects.length === 0 ? (
-          <p className="mt-4 text-muted-foreground">
-            This creator hasn&apos;t published any projects yet.
-          </p>
-        ) : (
-          <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
-              <ProjectCard key={project.projectId} project={project} />
-            ))}
-          </div>
+      {/* Tab content */}
+      <div className="mt-6">
+        {/* Projects tab */}
+        {activeTab === "projects" && (
+          <>
+            {projects.length === 0 ? (
+              <p className="text-muted-foreground">
+                This creator hasn&apos;t published any projects yet.
+              </p>
+            ) : (
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {projects.map((project) => (
+                  <ProjectCard key={project.projectId} project={project} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Followers tab */}
+        {activeTab === "followers" && (
+          <UserList
+            users={followers}
+            loading={listsLoading}
+            emptyMessage="No followers yet."
+          />
+        )}
+
+        {/* Following tab */}
+        {activeTab === "following" && (
+          <UserList
+            users={following}
+            loading={listsLoading}
+            emptyMessage="Not following anyone yet."
+          />
         )}
       </div>
     </div>
+  );
+}
+
+function UserList({
+  users,
+  loading,
+  emptyMessage,
+}: {
+  users: UserSummary[];
+  loading: boolean;
+  emptyMessage: string;
+}) {
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 animate-pulse">
+            <div className="h-10 w-10 rounded-full bg-muted" />
+            <div className="h-4 w-40 rounded bg-muted" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (users.length === 0) {
+    return <p className="text-muted-foreground">{emptyMessage}</p>;
+  }
+
+  return (
+    <ul className="divide-y divide-border">
+      {users.map((u) => (
+        <li key={u.uid} className="py-3">
+          <Link
+            href={`/creators/${u.uid}`}
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+          >
+            {u.photoURL ? (
+              <Image
+                src={u.photoURL}
+                alt={u.displayName}
+                width={40}
+                height={40}
+                className="h-10 w-10 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                {(u.displayName || "?")[0].toUpperCase()}
+              </div>
+            )}
+            <div>
+              <p className="text-sm font-medium text-foreground">{u.displayName}</p>
+              {u.isCreator && (
+                <p className="text-xs text-muted-foreground">
+                  Creator · {u.followersCount} followers
+                </p>
+              )}
+            </div>
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }

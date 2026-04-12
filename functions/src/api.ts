@@ -699,11 +699,37 @@ const routes: Record<string, RouteHandler> = {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    // Increment project savesCount
+    // Increment project savesCount and write bookmark notification
+    const projectDoc = await db.collection("projects").doc(projectId).get();
+    const creatorId: string | undefined = projectDoc.data()?.creatorId;
+
     await db
       .collection("projects")
       .doc(projectId)
       .update({ savesCount: admin.firestore.FieldValue.increment(1) });
+
+    // Notify the project creator (not yourself)
+    if (creatorId && creatorId !== req.user!.uid) {
+      const [actorDoc, creatorDoc] = await Promise.all([
+        db.collection("users").doc(req.user!.uid).get(),
+        db.collection("users").doc(creatorId).get(),
+      ]);
+      const notifRef = db.collection("notifications").doc();
+      await notifRef.set({
+        notificationId: notifRef.id,
+        recipientId: creatorId,
+        type: "bookmark",
+        actorId: req.user!.uid,
+        actorName: actorDoc.data()?.displayName || "Someone",
+        actorAvatar: actorDoc.data()?.photoURL || null,
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      const recipientPrefs = creatorDoc.data()?.notificationPreferences;
+      if (recipientPrefs?.emailOnNewOrder) {
+        console.info(`[notification] email:bookmark recipient=${creatorId} actor=${req.user!.uid}`);
+      }
+    }
 
     res.status(201).json({ saveId: saveRef.id });
   },
@@ -788,7 +814,13 @@ const routes: Record<string, RouteHandler> = {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    // Update follower/following counts
+    // Fetch actor data for notification enrichment
+    const [actorDoc, recipientDoc] = await Promise.all([
+      db.collection("users").doc(req.user!.uid).get(),
+      db.collection("users").doc(followingId).get(),
+    ]);
+
+    // Update counts + create in-app notification atomically
     const batch = db.batch();
     batch.update(db.collection("users").doc(followingId), {
       followersCount: admin.firestore.FieldValue.increment(1),
@@ -796,7 +828,24 @@ const routes: Record<string, RouteHandler> = {
     batch.update(db.collection("users").doc(req.user!.uid), {
       followingCount: admin.firestore.FieldValue.increment(1),
     });
+    const notifRef = db.collection("notifications").doc();
+    batch.set(notifRef, {
+      notificationId: notifRef.id,
+      recipientId: followingId,
+      type: "follow",
+      actorId: req.user!.uid,
+      actorName: actorDoc.data()?.displayName || "Someone",
+      actorAvatar: actorDoc.data()?.photoURL || null,
+      read: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
     await batch.commit();
+
+    // Trigger email if recipient opted in (integrate email provider when configured)
+    const recipientPrefs = recipientDoc.data()?.notificationPreferences;
+    if (recipientPrefs?.emailOnNewFollower) {
+      console.info(`[notification] email:follow recipient=${followingId} actor=${req.user!.uid}`);
+    }
 
     res.status(201).json({ followId: followRef.id });
   },
@@ -838,6 +887,73 @@ const routes: Record<string, RouteHandler> = {
       .limit(1)
       .get();
     res.json({ isFollowing: !snapshot.empty });
+  },
+
+  // ─── Followers / Following lists ─────────────────────
+  "GET /users/:uid/followers": async (req, res) => {
+    const { uid } = req.params!;
+    const snapshot = await db
+      .collection("follows")
+      .where("followingId", "==", uid)
+      .orderBy("createdAt", "desc")
+      .limit(50)
+      .get();
+
+    const followerIds = snapshot.docs.map((d) => d.data().followerId as string);
+    if (followerIds.length === 0) {
+      res.json({ followers: [] });
+      return;
+    }
+
+    const userDocs = await Promise.all(
+      followerIds.map((id) => db.collection("users").doc(id).get())
+    );
+    const followers = userDocs
+      .filter((d) => d.exists)
+      .map((d) => {
+        const u = d.data()!;
+        return {
+          uid: u.uid,
+          displayName: u.displayName,
+          photoURL: u.photoURL || null,
+          isCreator: u.isCreator,
+          followersCount: u.followersCount || 0,
+        };
+      });
+    res.json({ followers });
+  },
+
+  "GET /users/:uid/following": async (req, res) => {
+    const { uid } = req.params!;
+    const snapshot = await db
+      .collection("follows")
+      .where("followerId", "==", uid)
+      .orderBy("createdAt", "desc")
+      .limit(50)
+      .get();
+
+    const followingIds = snapshot.docs.map((d) => d.data().followingId as string);
+    if (followingIds.length === 0) {
+      res.json({ following: [] });
+      return;
+    }
+
+    const userDocs = await Promise.all(
+      followingIds.map((id) => db.collection("users").doc(id).get())
+    );
+    const following = userDocs
+      .filter((d) => d.exists)
+      .map((d) => {
+        const u = d.data()!;
+        return {
+          uid: u.uid,
+          displayName: u.displayName,
+          photoURL: u.photoURL || null,
+          isCreator: u.isCreator,
+          followersCount: u.followersCount || 0,
+        };
+      });
+    res.json({ following });
   },
 
   // ─── Trending / Recommended ──────────────────────────
@@ -911,6 +1027,45 @@ const routes: Record<string, RouteHandler> = {
     });
 
     res.json(updated);
+  },
+
+  // ─── In-app Notifications ────────────────────────────
+  "GET /notifications": async (req, res) => {
+    const snapshot = await db
+      .collection("notifications")
+      .where("recipientId", "==", req.user!.uid)
+      .orderBy("createdAt", "desc")
+      .limit(30)
+      .get();
+    res.json({ notifications: snapshot.docs.map((d) => d.data()) });
+  },
+
+  "PUT /notifications/:notificationId/read": async (req, res) => {
+    const { notificationId } = req.params!;
+    const docRef = db.collection("notifications").doc(notificationId);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists || docSnap.data()?.recipientId !== req.user!.uid) {
+      res.status(404).json({ error: "Notification not found" });
+      return;
+    }
+    await docRef.update({ read: true });
+    res.json({ success: true });
+  },
+
+  "PUT /notifications/read-all": async (req, res) => {
+    const snapshot = await db
+      .collection("notifications")
+      .where("recipientId", "==", req.user!.uid)
+      .where("read", "==", false)
+      .limit(100)
+      .get();
+
+    if (!snapshot.empty) {
+      const batch = db.batch();
+      snapshot.docs.forEach((d) => batch.update(d.ref, { read: true }));
+      await batch.commit();
+    }
+    res.json({ marked: snapshot.size });
   },
 
   // ─── Reports ──────────────────────────────────────────

@@ -4,20 +4,23 @@ import TrendingProjects from "@/components/TrendingProjects";
 import NewCreators from "@/components/NewCreators";
 import FeaturedCreators from "@/components/FeaturedCreators";
 import RecentlyAdded from "@/components/RecentlyAdded";
+import RecentlyAddedProducts from "@/components/RecentlyAddedProducts";
 
+// Sorted A–Z
 const CATEGORIES = [
-  { name: "Woodworking", slug: "woodworking", emoji: "🪵" },
-  { name: "Digital Art", slug: "digital-art", emoji: "🎨" },
-  { name: "Crafts", slug: "crafts", emoji: "✂️" },
-  { name: "Jewelry", slug: "jewelry", emoji: "💍" },
-  { name: "Ceramics", slug: "ceramics", emoji: "🏺" },
-  { name: "Textiles", slug: "textiles", emoji: "🧶" },
-  { name: "Paper Crafts", slug: "paper-crafts", emoji: "📄" },
   { name: "3D Printing", slug: "3d-printing", emoji: "🖨️" },
+  { name: "Ceramics", slug: "ceramics", emoji: "🏺" },
+  { name: "Crafts", slug: "crafts", emoji: "✂️" },
+  { name: "Digital Art", slug: "digital-art", emoji: "🎨" },
   { name: "Electronics", slug: "electronics", emoji: "⚡" },
-  { name: "Painting", slug: "painting", emoji: "🖌️" },
-  { name: "Photography", slug: "photography", emoji: "📷" },
   { name: "Fiber Arts", slug: "fiber-arts", emoji: "🧵" },
+  { name: "Jewelry", slug: "jewelry", emoji: "💍" },
+  { name: "Other", slug: "other", emoji: "🎁" },
+  { name: "Painting", slug: "painting", emoji: "🖌️" },
+  { name: "Paper Crafts", slug: "paper-crafts", emoji: "📄" },
+  { name: "Photography", slug: "photography", emoji: "📷" },
+  { name: "Textiles", slug: "textiles", emoji: "🧶" },
+  { name: "Woodworking", slug: "woodworking", emoji: "🪵" },
 ];
 
 export default function Home() {
@@ -41,7 +44,7 @@ export default function Home() {
             A low-fee marketplace for hobby creators. Share your projects,
             sell your creations, and earn back money to keep making things you love.
           </p>
-          <div className="mt-10 flex items-center justify-center gap-4">
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Link
               href="/signup"
               className="btn-gradient"
@@ -53,6 +56,12 @@ export default function Home() {
               className="rounded-xl border border-border px-6 py-3 text-sm font-semibold text-foreground hover:bg-muted/60 transition-colors"
             >
               Browse Projects
+            </Link>
+            <Link
+              href="/browse?type=product"
+              className="rounded-xl border border-border px-6 py-3 text-sm font-semibold text-foreground hover:bg-muted/60 transition-colors"
+            >
+              Browse Products
             </Link>
           </div>
           <p className="mt-4 text-sm text-muted-foreground">
@@ -137,7 +146,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Recently Added */}
+      {/* Recently Added Projects */}
       <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <h2 className="text-center text-2xl font-bold text-foreground sm:text-3xl">
           Recently Added
@@ -154,6 +163,27 @@ export default function Home() {
             className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
           >
             Browse all projects →
+          </Link>
+        </div>
+      </section>
+
+      {/* Recently Added Products */}
+      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <h2 className="text-center text-2xl font-bold text-foreground sm:text-3xl">
+          Recently Added Products
+        </h2>
+        <p className="mt-2 text-center text-muted-foreground">
+          Fresh listings from creators ready to purchase
+        </p>
+        <div className="mt-10">
+          <RecentlyAddedProducts />
+        </div>
+        <div className="mt-6 text-center">
+          <Link
+            href="/browse?type=product"
+            className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            Browse all products →
           </Link>
         </div>
       </section>

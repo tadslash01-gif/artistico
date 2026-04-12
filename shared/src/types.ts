@@ -229,18 +229,19 @@ export interface MessageEntry {
 // ─── Categories ──────────────────────────────────────────
 
 export const PROJECT_CATEGORIES = [
-  "woodworking",
-  "digital-art",
-  "crafts",
-  "jewelry",
-  "ceramics",
-  "textiles",
-  "paper-crafts",
   "3d-printing",
+  "ceramics",
+  "crafts",
+  "digital-art",
   "electronics",
-  "painting",
-  "photography",
+  "fiber-arts",
+  "jewelry",
   "other",
+  "painting",
+  "paper-crafts",
+  "photography",
+  "textiles",
+  "woodworking",
 ] as const;
 
 export type ProjectCategory = (typeof PROJECT_CATEGORIES)[number];
@@ -284,5 +285,20 @@ export interface Report {
   reason: string;
   details: string;
   status: ReportStatus;
+  createdAt: Timestamp;
+}
+
+// ─── Notifications ───────────────────────────────────────
+
+export type NotificationType = "follow" | "bookmark";
+
+export interface Notification {
+  notificationId: string;
+  recipientId: string;
+  type: NotificationType;
+  actorId: string;
+  actorName: string;
+  actorAvatar: string | null;
+  read: boolean;
   createdAt: Timestamp;
 }
