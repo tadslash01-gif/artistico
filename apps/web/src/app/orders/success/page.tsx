@@ -39,72 +39,108 @@ export default function OrderSuccessPage({
   const [product, setProduct] = useState<ProductData | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPolling, setIsPolling] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
-  useEffect(() => {
-    async function fetchOrder() {
-      if (!firestore || !user || !sessionId) {
-        setLoading(false);
-        return;
-      }
+  const MAX_POLL_ATTEMPTS = 15;
+  const POLL_INTERVAL_MS = 2000;
 
+  useEffect(() => {
+    if (!firestore || !user || !sessionId) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function tryFetchOrder(): Promise<boolean> {
       try {
-        // Find order by Stripe checkout session ID
         const { collection, query, where, getDocs } = await import(
           "firebase/firestore"
         );
         const q = query(
-          collection(firestore, "orders"),
+          collection(firestore!, "orders"),
           where("stripeCheckoutSessionId", "==", sessionId),
-          where("buyerId", "==", user.uid)
+          where("buyerId", "==", user!.uid)
         );
         const snap = await getDocs(q);
-        if (snap.empty) {
-          setLoading(false);
-          return;
-        }
+        if (snap.empty) return false;
 
         const orderData = snap.docs[0].data() as OrderData;
-        setOrder(orderData);
+        if (!cancelled) setOrder(orderData);
 
-        // Fetch product info
+        // Fetch product info in parallel with download URL
         const productSnap = await getDoc(
-          doc(firestore, "products", orderData.productId)
+          doc(firestore!, "products", orderData.productId)
         );
-        if (productSnap.exists()) {
+        if (!cancelled && productSnap.exists()) {
           setProduct(productSnap.data() as ProductData);
         }
 
         // If digital, fetch download URL
         if (
+          !cancelled &&
           productSnap.exists() &&
           (productSnap.data() as ProductData).type === "digital"
         ) {
           try {
             const { url } = await apiFetch<{ url: string }>(
-              `/users/${user.uid}/download/${orderData.productId}`
+              `/users/${user!.uid}/download/${orderData.productId}`
             );
-            setDownloadUrl(url);
+            if (!cancelled) setDownloadUrl(url);
           } catch {
-            // Download may not be ready yet
+            // Download endpoint will be available once the webhook has fully processed
           }
         }
+
+        return true;
       } catch (err) {
         console.error("Failed to load order:", err);
-      } finally {
-        setLoading(false);
+        return false;
       }
     }
 
-    fetchOrder();
-  }, [user, sessionId]);
+    async function poll() {
+      for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+        if (cancelled) return;
+        const found = await tryFetchOrder();
+        if (found) break;
+        // After the first failed attempt, flip to "polling" UI
+        if (attempt === 0) setIsPolling(true);
+        if (attempt < MAX_POLL_ATTEMPTS - 1) {
+          await new Promise<void>((resolve) =>
+            setTimeout(resolve, POLL_INTERVAL_MS)
+          );
+        }
+      }
+      if (!cancelled) setLoading(false);
+    }
+
+    poll();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, sessionId]);
 
   if (loading) {
     return (
       <div className="mx-auto max-w-lg px-4 py-20 text-center">
         <div className="h-8 w-8 mx-auto animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <p className="mt-4 text-muted-foreground">Loading your order...</p>
+        {isPolling ? (
+          <>
+            <p className="mt-4 font-medium text-foreground">
+              Confirming your payment…
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              This usually takes just a few seconds.
+            </p>
+          </>
+        ) : (
+          <p className="mt-4 text-muted-foreground">Loading your order…</p>
+        )}
       </div>
     );
   }
@@ -114,11 +150,11 @@ export default function OrderSuccessPage({
       <div className="mx-auto max-w-lg px-4 py-20 text-center">
         <div className="text-5xl">📦</div>
         <h1 className="mt-4 text-2xl font-bold text-foreground">
-          Order Confirmation
+          Payment Received
         </h1>
         <p className="mt-2 text-muted-foreground">
           {sessionId
-            ? "Your order is being processed. It may take a moment to appear."
+            ? "Your payment was processed successfully. Your order confirmation will appear in your dashboard shortly."
             : "No order session found."}
         </p>
         <Link

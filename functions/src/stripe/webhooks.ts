@@ -1,12 +1,17 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { getStripe, stripeSecretKey, stripeWebhookSecret } from "./client";
-import { db } from "../admin";
+import { db, auth, storage } from "../admin";
 import { auditLog } from "../middleware/auditLog";
+import { getResend, resendApiKey, FROM_ADDRESS } from "../email/client";
+import {
+  buildBuyerConfirmationEmail,
+  buildCreatorSaleEmail,
+} from "../email/templates";
 import * as admin from "firebase-admin";
 
 export const stripeWebhook = onRequest(
   {
-    secrets: [stripeSecretKey, stripeWebhookSecret],
+    secrets: [stripeSecretKey, stripeWebhookSecret, resendApiKey],
     cors: false,
     invoker: "public",
   },
@@ -109,6 +114,17 @@ async function handleCheckoutComplete(session: any): Promise<void> {
   await orderRef.set(order);
   auditLog({ action: "order.create", uid: buyerId, targetResource: orderRef.id, metadata: { productId, sessionId: session.id } });
 
+  // Send confirmation emails — wrapped in try/catch so email failure never
+  // prevents the webhook from returning 200 (which would cause Stripe to retry).
+  await sendOrderEmails({
+    order: { ...order, orderId: orderRef.id },
+    product,
+    buyerId,
+    creatorId,
+  }).catch((err) =>
+    console.error("Email delivery failed (non-fatal):", err)
+  );
+
   // Atomically update product sales count and inventory inside a transaction
   const productRef = db.collection("products").doc(productId);
   await db.runTransaction(async (tx) => {
@@ -147,6 +163,84 @@ async function handleCheckoutComplete(session: any): Promise<void> {
     }
     tx.update(creatorRef, updates);
   });
+}
+
+async function sendOrderEmails(params: {
+  order: Record<string, any>;
+  product: Record<string, any>;
+  buyerId: string;
+  creatorId: string;
+}): Promise<void> {
+  const { order, product, buyerId, creatorId } = params;
+  const resend = getResend();
+
+  // Fetch buyer and creator auth records for email addresses
+  const [buyerRecord, creatorRecord] = await Promise.all([
+    auth.getUser(buyerId).catch(() => null),
+    auth.getUser(creatorId).catch(() => null),
+  ]);
+
+  const buyerEmail = buyerRecord?.email;
+  const buyerName = buyerRecord?.displayName || "there";
+  const creatorEmail = creatorRecord?.email;
+  const creatorName = creatorRecord?.displayName || "Creator";
+
+  // For digital products, generate a 24-hour signed download URL for the email.
+  // On-demand API endpoint keeps its own 1-hour expiry; this longer window is for email latency.
+  let downloadUrl: string | undefined;
+  if (product.type === "digital" && product.digitalFileUrl) {
+    try {
+      const bucket = storage.bucket();
+      const [signed] = await bucket.file(product.digitalFileUrl).getSignedUrl({
+        action: "read",
+        expires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+      });
+      downloadUrl = signed;
+    } catch (err) {
+      console.warn("Could not generate download URL for email:", err);
+    }
+  }
+
+  // Check creator notification preferences
+  const creatorDoc = await db.collection("users").doc(creatorId).get();
+  const notifPrefs = creatorDoc.data()?.notificationPreferences;
+  const creatorWantsEmail = notifPrefs?.emailOnNewOrder !== false; // default to true
+
+  const emailPromises: Promise<any>[] = [];
+
+  // Buyer confirmation email
+  if (buyerEmail) {
+    const { subject, html } = buildBuyerConfirmationEmail({
+      buyerName,
+      orderId: order.orderId,
+      productTitle: product.title,
+      amount: order.amount,
+      productType: product.type,
+      downloadUrl,
+    });
+    emailPromises.push(
+      resend.emails.send({ from: FROM_ADDRESS, to: buyerEmail, subject, html })
+    );
+  } else {
+    console.warn(`No email address for buyer ${buyerId} — skipping buyer email`);
+  }
+
+  // Creator sale notification
+  if (creatorEmail && creatorWantsEmail) {
+    const { subject, html } = buildCreatorSaleEmail({
+      creatorName,
+      orderId: order.orderId,
+      productTitle: product.title,
+      amount: order.amount,
+      creatorPayout: order.creatorPayout,
+      productType: product.type,
+    });
+    emailPromises.push(
+      resend.emails.send({ from: FROM_ADDRESS, to: creatorEmail, subject, html })
+    );
+  }
+
+  await Promise.all(emailPromises);
 }
 
 async function handleAccountUpdated(account: any): Promise<void> {
