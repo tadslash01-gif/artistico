@@ -126,6 +126,14 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ─── Activity Events ─────────────────────────────────────
+    // Written by Cloud Functions (admin SDK) only.
+    // Publicly readable for the homepage live feed.
+    match /activityEvents/{eventId} {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
+
     // ─── Notifications ───────────────────────────────────────
     // Written by Cloud Functions (admin SDK) only.
     // Recipients can read and mark as read.

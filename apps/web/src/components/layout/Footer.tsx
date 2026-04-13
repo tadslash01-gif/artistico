@@ -1,9 +1,37 @@
 import Link from "next/link";
 import { ArtisticoLogo } from "@/components/branding/ArtisticoLogo";
 
-export function Footer() {
+async function getPlatformStats(): Promise<{ totalCreators: number; totalProjects: number } | null> {
+  try {
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || "/api";
+    const res = await fetch(`${apiBase}/stats/platform`, { next: { revalidate: 3600 } });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function Footer() {
+  const stats = await getPlatformStats();
+
   return (
     <footer className="border-t border-border bg-white">
+      {stats && (
+        <div className="border-b border-border/50 bg-muted/30">
+          <div className="mx-auto flex max-w-7xl items-center justify-center gap-6 px-4 py-3 sm:px-6 lg:px-8">
+            <span className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">{stats.totalCreators.toLocaleString()}</span> creators
+            </span>
+            <span className="text-muted-foreground/40">·</span>
+            <span className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">{stats.totalProjects.toLocaleString()}</span> projects shared
+            </span>
+            <span className="text-muted-foreground/40">·</span>
+            <span className="text-sm text-muted-foreground">Only 5% fee</span>
+          </div>
+        </div>
+      )}
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-2">

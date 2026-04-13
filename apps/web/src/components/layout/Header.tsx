@@ -12,10 +12,12 @@ import { apiFetch } from "@/lib/api";
 interface InAppNotification {
   notificationId: string;
   recipientId: string;
-  type: "follow" | "bookmark";
+  type: "follow" | "bookmark" | "new_post";
   actorId: string;
   actorName: string;
   actorAvatar: string | null;
+  entityTitle?: string;
+  entitySlug?: string;
   read: boolean;
   createdAt: { seconds: number; nanoseconds: number } | null;
 }
@@ -64,6 +66,7 @@ function NotificationBell({ userId }: { userId: string }) {
   function notificationText(n: InAppNotification) {
     if (n.type === "follow") return `${n.actorName} started following you`;
     if (n.type === "bookmark") return `${n.actorName} bookmarked your project`;
+    if (n.type === "new_post") return `${n.actorName} posted a new project${n.entityTitle ? `: ${n.entityTitle}` : ""}`;
     return "New notification";
   }
 
@@ -184,17 +187,17 @@ export function Header() {
           >
             Creators
           </Link>
-          {userData?.isCreator && (
+          {user && (
             <Link
-              href="/dashboard"
+              href="/dashboard/following"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
-              Dashboard
+              Following
             </Link>
           )}
         </nav>
 
-        {/* Auth Actions */}
+        {/* Auth controls */}
         <div className="flex items-center gap-3">
           {loading ? (
             <div className="h-8 w-20 animate-pulse rounded-lg bg-muted" />

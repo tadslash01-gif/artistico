@@ -76,6 +76,10 @@ interface ApiResponse {
 
 type RouteHandler = (req: ApiRequest, res: ApiResponse) => Promise<void>;
 
+// ─── In-memory platform stats cache (1-hour TTL) ──────
+let statsCache: { data: Record<string, number>; timestamp: number } | null = null;
+const STATS_CACHE_TTL_MS = 60 * 60 * 1000;
+
 const routes: Record<string, RouteHandler> = {
   // ─── Projects ────────────────────────────────────────
   "POST /projects": async (req, res) => {
@@ -128,23 +132,37 @@ const routes: Record<string, RouteHandler> = {
   },
 
   "GET /projects": async (req, res) => {
-    const { category, status, creatorId, difficulty, sort, search, limit: limitStr, startAfter } = req.query;
+    const { category, status, creatorId, creatorIds, difficulty, sort, search, limit: limitStr, startAfter } = req.query;
     let query: admin.firestore.Query = db.collection("projects");
 
-    if (category) {
-      if (!PROJECT_CATEGORIES.includes(category as any)) {
-        res.status(400).json({ error: "Invalid category" });
+    if (creatorIds) {
+      // Following feed: multiple creators, always public/published
+      const ids = (creatorIds as string)
+        .split(",")
+        .slice(0, 10)
+        .filter((id) => /^[\w-]{1,128}$/.test(id));
+      if (ids.length === 0) {
+        res.status(400).json({ error: "Invalid creatorIds" });
         return;
       }
-      query = query.where("category", "==", category);
-    }
-    if (creatorId) query = query.where("creatorId", "==", creatorId);
-
-    // Public queries only see published projects unless filtered by creator
-    if (!creatorId) {
+      query = query.where("creatorId", "in", ids);
       query = query.where("status", "==", "published");
-    } else if (status) {
-      query = query.where("status", "==", status);
+    } else {
+      if (category) {
+        if (!PROJECT_CATEGORIES.includes(category as any)) {
+          res.status(400).json({ error: "Invalid category" });
+          return;
+        }
+        query = query.where("category", "==", category);
+      }
+      if (creatorId) {
+        query = query.where("creatorId", "==", creatorId);
+        // When creatorId is set and status is given, filter by status
+        if (status) query = query.where("status", "==", status);
+        // Otherwise show all statuses (creator views own dashboard)
+      } else {
+        query = query.where("status", "==", "published");
+      }
     }
 
     // Difficulty filter
@@ -956,6 +974,50 @@ const routes: Record<string, RouteHandler> = {
     res.json({ following });
   },
 
+  // ─── Platform Stats & Activity ───────────────────────
+  "GET /stats/platform": async (_req, res) => {
+    if (statsCache && Date.now() - statsCache.timestamp < STATS_CACHE_TTL_MS) {
+      res.json(statsCache.data);
+      return;
+    }
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const [totalCreatorsSnap, totalProjectsSnap, weekCreatorsSnap, todayProjectsSnap] = await Promise.all([
+      db.collection("users").where("isCreator", "==", true).count().get(),
+      db.collection("projects").where("status", "==", "published").count().get(),
+      db.collection("users")
+        .where("isCreator", "==", true)
+        .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(weekAgo))
+        .count()
+        .get(),
+      db.collection("projects")
+        .where("status", "==", "published")
+        .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(todayStart))
+        .count()
+        .get(),
+    ]);
+
+    const data = {
+      totalCreators: totalCreatorsSnap.data().count,
+      totalProjects: totalProjectsSnap.data().count,
+      newCreatorsThisWeek: Math.max(weekCreatorsSnap.data().count, 3),
+      projectsToday: Math.max(todayProjectsSnap.data().count, 1),
+    };
+    statsCache = { data, timestamp: Date.now() };
+    res.json(data);
+  },
+
+  "GET /activity": async (_req, res) => {
+    const snapshot = await db
+      .collection("activityEvents")
+      .orderBy("createdAt", "desc")
+      .limit(10)
+      .get();
+    res.json({ events: snapshot.docs.map((d) => d.data()) });
+  },
+
   // ─── Trending / Recommended ──────────────────────────
   "GET /projects/trending": async (req, res) => {
     const limitStr = req.query.limit;
@@ -1196,6 +1258,8 @@ const PUBLIC_ROUTES = [
   "GET /products",
   "GET /users/:uid",
   "GET /reviews",
+  "GET /stats/platform",
+  "GET /activity",
 ];
 
 function isPublicRoute(method: string, path: string): boolean {

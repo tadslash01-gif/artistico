@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
@@ -25,6 +25,8 @@ const CATEGORIES = [
 export default function NewProjectPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isQuickMode = searchParams.get("mode") === "quick";
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
@@ -141,6 +143,11 @@ export default function NewProjectPage() {
     e.preventDefault();
     if (!user || !firestore) return;
 
+    if (!isQuickMode && !description.trim()) {
+      setError("Please add a description for your project");
+      return;
+    }
+
     setError("");
     setLoading(true);
     try {
@@ -203,11 +210,21 @@ export default function NewProjectPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-foreground">Create New Project</h1>
+      <h1 className="text-2xl font-bold text-foreground">
+        {isQuickMode ? "Quick Post" : "Create New Project"}
+      </h1>
       <p className="mt-2 text-muted-foreground">
-        Share a project you&apos;ve been working on. You can add products to it after
-        creating.
+        {isQuickMode
+          ? "Share what you made in seconds. You can add more details after posting."
+          : "Share a project you've been working on. You can add products to it after creating."}
       </p>
+
+      {isQuickMode && (
+        <div className="mt-4 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <span className="mt-0.5 shrink-0">⚡</span>
+          <span>Quick mode — just the essentials. Add description, materials, and story after posting.</span>
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -233,11 +250,10 @@ export default function NewProjectPage() {
 
         <div>
           <label htmlFor="description" className="block text-sm font-medium text-foreground">
-            Description
+            Description {isQuickMode && <span className="text-muted-foreground font-normal">(optional — add later)</span>}
           </label>
           <textarea
             id="description"
-            required
             rows={6}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -283,186 +299,190 @@ export default function NewProjectPage() {
           />
         </div>
 
-        <div>
-          <label htmlFor="materials" className="block text-sm font-medium text-foreground">
-            Materials Used
-          </label>
-          <input
-            id="materials"
-            type="text"
-            value={materialsUsed}
-            onChange={(e) => setMaterialsUsed(e.target.value)}
-            placeholder="oak wood, epoxy resin, brass hardware (comma separated)"
-            className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
+        {!isQuickMode && (
+          <>
+            <div>
+              <label htmlFor="materials" className="block text-sm font-medium text-foreground">
+                Materials Used
+              </label>
+              <input
+                id="materials"
+                type="text"
+                value={materialsUsed}
+                onChange={(e) => setMaterialsUsed(e.target.value)}
+                placeholder="oak wood, epoxy resin, brass hardware (comma separated)"
+                className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
 
-        {/* Structured Materials List */}
-        <div>
-          <label className="block text-sm font-medium text-foreground">
-            Detailed Materials List{" "}
-            <span className="text-muted-foreground font-normal">(optional — helps buyers plan)</span>
-          </label>
-          <div className="mt-2 space-y-3">
-            {materials.map((mat, i) => (
-              <div key={i} className="rounded-lg border border-border bg-white p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">Material {i + 1}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeMaterial(i)}
-                    className="text-xs text-destructive hover:text-destructive/80"
-                  >
-                    Remove
-                  </button>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <input
-                    id={`material-${i}-name`}
-                    name={`material-${i}-name`}
-                    type="text"
-                    placeholder="Name *"
-                    value={mat.name}
-                    onChange={(e) => updateMaterial(i, "name", e.target.value)}
-                    className="col-span-3 rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <input
-                    id={`material-${i}-qty`}
-                    name={`material-${i}-qty`}
-                    type="number"
-                    placeholder="Qty"
-                    min="0"
-                    step="any"
-                    value={mat.quantity}
-                    onChange={(e) => updateMaterial(i, "quantity", e.target.value)}
-                    className="rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <select
-                    id={`material-${i}-unit`}
-                    name={`material-${i}-unit`}
-                    title="Unit of measurement"
-                    value={mat.unit}
-                    onChange={(e) => updateMaterial(i, "unit", e.target.value)}
-                    className="rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="pcs">pcs</option>
-                    <option value="ft">ft</option>
-                    <option value="in">in</option>
-                    <option value="m">m</option>
-                    <option value="cm">cm</option>
-                    <option value="oz">oz</option>
-                    <option value="lb">lb</option>
-                    <option value="g">g</option>
-                    <option value="kg">kg</option>
-                    <option value="ml">ml</option>
-                    <option value="L">L</option>
-                    <option value="rolls">rolls</option>
-                    <option value="sheets">sheets</option>
-                    <option value="other">other</option>
-                  </select>
-                  <div className="relative">
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+            {/* Structured Materials List */}
+            <div>
+              <label className="block text-sm font-medium text-foreground">
+                Detailed Materials List{" "}
+                <span className="text-muted-foreground font-normal">(optional — helps buyers plan)</span>
+              </label>
+              <div className="mt-2 space-y-3">
+                {materials.map((mat, i) => (
+                  <div key={i} className="rounded-lg border border-border bg-white p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">Material {i + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeMaterial(i)}
+                        className="text-xs text-destructive hover:text-destructive/80"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <input
+                        id={`material-${i}-name`}
+                        name={`material-${i}-name`}
+                        type="text"
+                        placeholder="Name *"
+                        value={mat.name}
+                        onChange={(e) => updateMaterial(i, "name", e.target.value)}
+                        className="col-span-3 rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      <input
+                        id={`material-${i}-qty`}
+                        name={`material-${i}-qty`}
+                        type="number"
+                        placeholder="Qty"
+                        min="0"
+                        step="any"
+                        value={mat.quantity}
+                        onChange={(e) => updateMaterial(i, "quantity", e.target.value)}
+                        className="rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      <select
+                        id={`material-${i}-unit`}
+                        name={`material-${i}-unit`}
+                        title="Unit of measurement"
+                        value={mat.unit}
+                        onChange={(e) => updateMaterial(i, "unit", e.target.value)}
+                        className="rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      >
+                        <option value="pcs">pcs</option>
+                        <option value="ft">ft</option>
+                        <option value="in">in</option>
+                        <option value="m">m</option>
+                        <option value="cm">cm</option>
+                        <option value="oz">oz</option>
+                        <option value="lb">lb</option>
+                        <option value="g">g</option>
+                        <option value="kg">kg</option>
+                        <option value="ml">ml</option>
+                        <option value="L">L</option>
+                        <option value="rolls">rolls</option>
+                        <option value="sheets">sheets</option>
+                        <option value="other">other</option>
+                      </select>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                        <input
+                          type="number"
+                          placeholder="Price"
+                          min="0"
+                          step="0.01"
+                          value={mat.estimatedPrice}
+                          onChange={(e) => updateMaterial(i, "estimatedPrice", e.target.value)}
+                          className="w-full rounded border border-border bg-white pl-5 pr-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
                     <input
-                      type="number"
-                      placeholder="Price"
-                      min="0"
-                      step="0.01"
-                      value={mat.estimatedPrice}
-                      onChange={(e) => updateMaterial(i, "estimatedPrice", e.target.value)}
-                      className="w-full rounded border border-border bg-white pl-5 pr-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      id={`material-${i}-url`}
+                      name={`material-${i}-url`}
+                      type="url"
+                      placeholder="Link to purchase (optional)"
+                      value={mat.url}
+                      onChange={(e) => updateMaterial(i, "url", e.target.value)}
+                      className="w-full rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <input
+                      id={`material-${i}-notes`}
+                      name={`material-${i}-notes`}
+                      type="text"
+                      placeholder="Notes (optional)"
+                      value={mat.notes}
+                      onChange={(e) => updateMaterial(i, "notes", e.target.value)}
+                      className="w-full rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </div>
-                </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addMaterial}
+                  className="rounded-lg border border-dashed border-border px-4 py-2 text-sm text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
+                >
+                  + Add Material
+                </button>
+              </div>
+            </div>
+
+            {/* Storytelling Fields */}
+            <div>
+              <label htmlFor="creatorStory" className="block text-sm font-medium text-foreground">
+                Your Story <span className="text-muted-foreground font-normal">(optional)</span>
+              </label>
+              <textarea
+                id="creatorStory"
+                rows={3}
+                value={creatorStory}
+                onChange={(e) => setCreatorStory(e.target.value)}
+                placeholder="What inspired you to create this? What's the story behind it?"
+                className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="useCase" className="block text-sm font-medium text-foreground">
+                Use Case <span className="text-muted-foreground font-normal">(optional)</span>
+              </label>
+              <input
+                id="useCase"
+                type="text"
+                value={useCase}
+                onChange={(e) => setUseCase(e.target.value)}
+                placeholder="Home decor, gift, personal use, etc."
+                className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="difficulty" className="block text-sm font-medium text-foreground">
+                  Difficulty <span className="text-muted-foreground font-normal">(optional)</span>
+                </label>
+                <select
+                  id="difficulty"
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value)}
+                  className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">Not specified</option>
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="timeToBuild" className="block text-sm font-medium text-foreground">
+                  Time to Build <span className="text-muted-foreground font-normal">(optional)</span>
+                </label>
                 <input
-                  id={`material-${i}-url`}
-                  name={`material-${i}-url`}
-                  type="url"
-                  placeholder="Link to purchase (optional)"
-                  value={mat.url}
-                  onChange={(e) => updateMaterial(i, "url", e.target.value)}
-                  className="w-full rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-                <input
-                  id={`material-${i}-notes`}
-                  name={`material-${i}-notes`}
+                  id="timeToBuild"
                   type="text"
-                  placeholder="Notes (optional)"
-                  value={mat.notes}
-                  onChange={(e) => updateMaterial(i, "notes", e.target.value)}
-                  className="w-full rounded border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  value={timeToBuild}
+                  onChange={(e) => setTimeToBuild(e.target.value)}
+                  placeholder="e.g. 3 hours, 2 weekends"
+                  className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
-            ))}
-            <button
-              type="button"
-              onClick={addMaterial}
-              className="rounded-lg border border-dashed border-border px-4 py-2 text-sm text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
-            >
-              + Add Material
-            </button>
-          </div>
-        </div>
-
-        {/* Storytelling Fields */}
-        <div>
-          <label htmlFor="creatorStory" className="block text-sm font-medium text-foreground">
-            Your Story <span className="text-muted-foreground font-normal">(optional)</span>
-          </label>
-          <textarea
-            id="creatorStory"
-            rows={3}
-            value={creatorStory}
-            onChange={(e) => setCreatorStory(e.target.value)}
-            placeholder="What inspired you to create this? What's the story behind it?"
-            className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="useCase" className="block text-sm font-medium text-foreground">
-            Use Case <span className="text-muted-foreground font-normal">(optional)</span>
-          </label>
-          <input
-            id="useCase"
-            type="text"
-            value={useCase}
-            onChange={(e) => setUseCase(e.target.value)}
-            placeholder="Home decor, gift, personal use, etc."
-            className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="difficulty" className="block text-sm font-medium text-foreground">
-              Difficulty <span className="text-muted-foreground font-normal">(optional)</span>
-            </label>
-            <select
-              id="difficulty"
-              value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="">Not specified</option>
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-            </select>
-          </div>
-          <div>
-            <label htmlFor="timeToBuild" className="block text-sm font-medium text-foreground">
-              Time to Build <span className="text-muted-foreground font-normal">(optional)</span>
-            </label>
-            <input
-              id="timeToBuild"
-              type="text"
-              value={timeToBuild}
-              onChange={(e) => setTimeToBuild(e.target.value)}
-              placeholder="e.g. 3 hours, 2 weekends"
-              className="mt-1 block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-        </div>
+            </div>
+          </>
+        )}
 
         {/* Images (up to 5) */}
         <div>
@@ -510,7 +530,7 @@ export default function NewProjectPage() {
             disabled={loading}
             className="rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
-            {loading ? "Creating..." : "Create Project"}
+            {loading ? "Creating..." : isQuickMode ? "Post Now" : "Create Project"}
           </button>
           <button
             type="button"

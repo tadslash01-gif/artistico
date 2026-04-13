@@ -10,3 +10,4 @@ export { stripeWebhook } from "./stripe/webhooks";
 export { onUserDocCreated } from "./triggers/onUserCreate";
 export { onProjectUpdated } from "./triggers/onProjectUpdate";
 export { onProductWritten } from "./triggers/onProductWritten";
+export { onProjectPublished } from "./triggers/onProjectPublished";

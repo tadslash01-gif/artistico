@@ -5,6 +5,8 @@ import NewCreators from "@/components/NewCreators";
 import FeaturedCreators from "@/components/FeaturedCreators";
 import RecentlyAdded from "@/components/RecentlyAdded";
 import RecentlyAddedProducts from "@/components/RecentlyAddedProducts";
+import MomentumBar from "@/components/MomentumBar";
+import AliveFeeed from "@/components/AliveFeeed";
 
 // Sorted A–Z
 const CATEGORIES = [
@@ -36,20 +38,19 @@ export default function Home() {
         <div className="relative mx-auto flex flex-col items-center">
           <ArtisticoLogo size="lg" />
           <h1 className="mt-8 max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-            Sell what you make.
+            Your art deserves an audience.
             <br />
-            <span className="text-primary">Fund your hobby.</span>
+            <span className="text-primary">Not an algorithm.</span>
           </h1>
-          <p className="mt-6 max-w-lg text-base text-muted-foreground sm:text-lg">
-            A low-fee marketplace for hobby creators. Share your projects,
-            sell your creations, and earn back money to keep making things you love.
+          <p className="mt-4 max-w-lg text-base text-muted-foreground sm:text-lg">
+            Built for creators who get ignored elsewhere.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Link
-              href="/signup"
+              href="/dashboard/projects/new?mode=quick"
               className="btn-gradient"
             >
-              Start Selling — It&apos;s Free
+              Upload your first project in 60 seconds →
             </Link>
             <Link
               href="/browse"
@@ -64,11 +65,16 @@ export default function Home() {
               Browse Products
             </Link>
           </div>
-          <p className="mt-4 text-sm text-muted-foreground">
-            Only 5% marketplace fee. No monthly costs.
+          <p className="mt-6 text-xs text-muted-foreground">
+            Only 5% marketplace fee &middot; No monthly costs &middot; Free to join
           </p>
         </div>
       </section>
+
+      {/* Momentum Bar */}
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <MomentumBar />
+      </div>
 
       {/* Categories */}
       <section className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
@@ -94,7 +100,7 @@ export default function Home() {
       </section>
 
       {/* Trending Projects */}
-      <section className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+      <section id="trending" className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="flex items-center justify-center gap-2">
           <span className="text-2xl" aria-hidden="true">🔥</span>
           <h2 className="text-center text-2xl font-bold text-foreground sm:text-3xl">
@@ -114,6 +120,20 @@ export default function Home() {
           >
             See all trending →
           </Link>
+        </div>
+      </section>
+
+      {/* Live Activity */}
+      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="rounded-2xl border border-border bg-white/80 px-6 py-8 shadow-sm">
+          <div className="flex items-center gap-2 mb-6">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
+            </span>
+            <h2 className="text-lg font-bold text-foreground">Live Activity</h2>
+          </div>
+          <AliveFeeed />
         </div>
       </section>
 
