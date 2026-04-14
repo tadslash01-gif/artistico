@@ -6,6 +6,8 @@ import { auditLog } from "./middleware/auditLog";
 import { createCheckoutSession } from "./stripe/checkout";
 import { createStripeConnectLink, getStripeDashboardLink } from "./stripe/connect";
 import { stripeSecretKey, getStripe } from "./stripe/client";
+import { muxTokenId, muxTokenSecret } from "./streaming/mux";
+import { getStreamProvider } from "./streaming/client";
 import { db, auth, storage } from "./admin";
 import {
   CreateProjectSchema,
@@ -20,6 +22,8 @@ import {
   UpdateNotificationPrefsSchema,
   CreateReportSchema,
   CreateCommentSchema,
+  StartStreamSchema,
+  ChatMessageSchema,
   PROJECT_CATEGORIES,
 } from "@artistico/shared";
 
@@ -1364,6 +1368,211 @@ const routes: Record<string, RouteHandler> = {
     auditLog({ action: "dispute.opened", uid: req.user!.uid, targetResource: orderId, ip: req.ip, userAgent: req.headers["user-agent"] });
     res.json({ success: true, disputeDeadline: deadline.toISOString() });
   },
+
+  // ─── Live Streams ─────────────────────────────────────
+  "POST /streams/start": async (req, res) => {
+    if (!(await requireCreator(req, res))) return;
+
+    const parsed = StartStreamSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
+      return;
+    }
+
+    const creatorId = req.user!.uid;
+    const creatorDoc = await db.collection("users").doc(creatorId).get();
+    const creatorData = creatorDoc.data()!;
+
+    // Check creator doesn't already have an active stream
+    const existingSnap = await db
+      .collection("streams")
+      .where("creatorId", "==", creatorId)
+      .where("status", "==", "live")
+      .limit(1)
+      .get();
+    if (!existingSnap.empty) {
+      const existing = existingSnap.docs[0];
+      res.status(409).json({
+        error: "You already have an active stream",
+        streamId: existing.id,
+      });
+      return;
+    }
+
+    const provider = getStreamProvider();
+    let providerResult;
+    try {
+      providerResult = await provider.createStream(parsed.data.title);
+    } catch (err) {
+      console.error("[streams] provider.createStream failed:", err);
+      res.status(502).json({ error: "Failed to create stream with provider" });
+      return;
+    }
+
+    const { providerStreamId, streamKey, ingestUrl, playbackId } = providerResult;
+    const safeTitle = stripHtml(parsed.data.title);
+
+    const streamRef = db.collection("streams").doc();
+    const streamId = streamRef.id;
+
+    // Write public stream doc + private credentials subcollection atomically
+    const batch = db.batch();
+    batch.set(streamRef, {
+      id: streamId,
+      creatorId,
+      creatorName: creatorData.displayName || "Creator",
+      creatorAvatar: creatorData.photoURL || null,
+      title: safeTitle,
+      status: "live",
+      playbackId,
+      viewerCount: 0,
+      startedAt: admin.firestore.FieldValue.serverTimestamp(),
+      endedAt: null,
+      thumbnailUrl: null,
+    });
+    const credRef = db.collection("streams").doc(streamId).collection("private").doc("credentials");
+    batch.set(credRef, {
+      streamKey,
+      ingestUrl,
+      providerStreamId,
+    });
+    await batch.commit();
+
+    auditLog({ action: "stream.start", uid: creatorId, targetResource: streamId, ip: req.ip, userAgent: req.headers["user-agent"] });
+    res.status(201).json({ streamId, playbackId, streamKey, ingestUrl });
+  },
+
+  "POST /streams/:id/stop": async (req, res) => {
+    const streamId = req.params!.id;
+    const streamDoc = await db.collection("streams").doc(streamId).get();
+    if (!streamDoc.exists) {
+      res.status(404).json({ error: "Stream not found" });
+      return;
+    }
+    if (streamDoc.data()!.creatorId !== req.user!.uid) {
+      res.status(403).json({ error: "Not authorized" });
+      return;
+    }
+    if (streamDoc.data()!.status === "ended") {
+      res.status(400).json({ error: "Stream already ended" });
+      return;
+    }
+
+    const credDoc = await db
+      .collection("streams")
+      .doc(streamId)
+      .collection("private")
+      .doc("credentials")
+      .get();
+    const providerStreamId: string | undefined = credDoc.data()?.providerStreamId;
+
+    if (providerStreamId) {
+      const provider = getStreamProvider();
+      try {
+        await provider.disableStream(providerStreamId);
+      } catch (err) {
+        // Non-fatal — update Firestore regardless
+        console.warn("[streams] provider.disableStream failed:", err);
+      }
+    }
+
+    await db.collection("streams").doc(streamId).update({
+      status: "ended",
+      endedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    auditLog({ action: "stream.stop", uid: req.user!.uid, targetResource: streamId, ip: req.ip, userAgent: req.headers["user-agent"] });
+    res.json({ success: true });
+  },
+
+  "POST /streams/:id/chat": async (req, res) => {
+    const streamId = req.params!.id;
+    const parsed = ChatMessageSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
+      return;
+    }
+
+    const streamDoc = await db.collection("streams").doc(streamId).get();
+    if (!streamDoc.exists) {
+      res.status(404).json({ error: "Stream not found" });
+      return;
+    }
+    if (streamDoc.data()!.status !== "live") {
+      res.status(400).json({ error: "Stream is not live" });
+      return;
+    }
+
+    const actorDoc = await db.collection("users").doc(req.user!.uid).get();
+    const actorData = actorDoc.data();
+
+    const safeContent = stripHtml(parsed.data.content);
+    if (!safeContent) {
+      res.status(400).json({ error: "Message content is empty" });
+      return;
+    }
+
+    const msgRef = db.collection("streams").doc(streamId).collection("chat").doc();
+    await msgRef.set({
+      id: msgRef.id,
+      userId: req.user!.uid,
+      userDisplayName: actorData?.displayName || "Anonymous",
+      userAvatar: actorData?.photoURL || null,
+      content: safeContent,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    res.status(201).json({ messageId: msgRef.id });
+  },
+
+  "POST /streams/:id/heartbeat": async (req, res) => {
+    const streamId = req.params!.id;
+    const streamDoc = await db.collection("streams").doc(streamId).get();
+    if (!streamDoc.exists || streamDoc.data()!.status !== "live") {
+      // Silently accept — viewer may have loaded before stop
+      res.json({ success: true });
+      return;
+    }
+
+    const viewerRef = db
+      .collection("streams")
+      .doc(streamId)
+      .collection("viewers")
+      .doc(req.user!.uid);
+
+    const viewerDoc = await viewerRef.get();
+    if (viewerDoc.exists) {
+      await viewerRef.update({ lastActiveAt: admin.firestore.FieldValue.serverTimestamp() });
+    } else {
+      await viewerRef.set({
+        userId: req.user!.uid,
+        joinedAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    res.json({ success: true });
+  },
+
+  "GET /streams/live": async (_req, res) => {
+    const snap = await db
+      .collection("streams")
+      .where("status", "==", "live")
+      .orderBy("startedAt", "desc")
+      .limit(20)
+      .get();
+    res.json({ streams: snap.docs.map((d) => d.data()) });
+  },
+
+  "GET /streams/:id": async (req, res) => {
+    const streamId = req.params!.id;
+    const doc = await db.collection("streams").doc(streamId).get();
+    if (!doc.exists) {
+      res.status(404).json({ error: "Stream not found" });
+      return;
+    }
+    res.json(doc.data());
+  },
 };
 
 import * as admin from "firebase-admin";
@@ -1421,6 +1630,8 @@ const PUBLIC_ROUTES = [
   "GET /stats/platform",
   "GET /activity",
   "GET /comments",
+  "GET /streams/live",
+  "GET /streams/:id",
 ];
 
 function isPublicRoute(method: string, path: string): boolean {
@@ -1451,7 +1662,7 @@ function isPublicRoute(method: string, path: string): boolean {
   return false;
 }
 
-export const api = onRequest({ cors: false, secrets: [stripeSecretKey], invoker: "public" }, (req, res) => {
+export const api = onRequest({ cors: false, secrets: [stripeSecretKey, muxTokenId, muxTokenSecret], invoker: "public" }, (req, res) => {
   corsHandler(req, res, async () => {
     try {
       // Strip /api prefix if present

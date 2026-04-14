@@ -231,3 +231,20 @@ export const CreateCommentSchema = z.object({
 });
 
 export type CreateCommentInput = z.infer<typeof CreateCommentSchema>;
+
+// ─── Live Stream schemas ──────────────────────────────────
+
+export const StartStreamSchema = z.object({
+  title: z.string().min(1).max(100).transform((v) => v.trim()),
+});
+
+export const ChatMessageSchema = z.object({
+  content: z
+    .string()
+    .min(1)
+    .max(500)
+    .transform((v) => v.trim()),
+});
+
+export type StartStreamInput = z.infer<typeof StartStreamSchema>;
+export type ChatMessageInput = z.infer<typeof ChatMessageSchema>;

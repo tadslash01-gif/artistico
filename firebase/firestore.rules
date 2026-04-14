@@ -194,5 +194,46 @@ service cloud.firestore {
       // Users can only write their own presence document
       allow write: if isOwner(userId);
     }
+
+    // ─── Live Streams ─────────────────────────────────────────
+    match /streams/{streamId} {
+      // Anyone can read stream metadata (for viewer page & Live Now row)
+      allow read: if true;
+      // Only creators can start a stream (status set server-side)
+      allow create: if isCreator()
+                    && request.resource.data.creatorId == request.auth.uid;
+      // Allow update only to owner (viewer count is updated server-side)
+      allow update: if isOwner(resource.data.creatorId);
+      allow delete: if false;
+
+      // Subcollection: live chat messages
+      match /chat/{messageId} {
+        // Anyone can read chat (including anonymous viewers)
+        allow read: if true;
+        // Authenticated users can post chat messages
+        allow create: if isAuthenticated()
+                      && request.resource.data.userId == request.auth.uid
+                      && request.resource.data.content.size() >= 1
+                      && request.resource.data.content.size() <= 500;
+        allow update, delete: if false;
+      }
+
+      // Subcollection: viewer presence (heartbeats)
+      match /viewers/{userId} {
+        // Authenticated users can read viewer presence (for count display)
+        allow read: if isAuthenticated();
+        // Viewers write their own presence only
+        allow create, update: if isOwner(userId);
+        allow delete: if false;
+      }
+
+      // Subcollection: private credentials (streamKey, ingestUrl)
+      // Only the owning creator can read — never publicly accessible
+      match /private/{doc} {
+        allow read: if isAuthenticated()
+                    && request.auth.uid == get(/databases/$(database)/documents/streams/$(streamId)).data.creatorId;
+        allow create, update, delete: if false;
+      }
+    }
   }
 }

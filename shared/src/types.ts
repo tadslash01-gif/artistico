@@ -302,7 +302,8 @@ export type NotificationType =
   | "comment_on_project"
   | "reply_to_comment"
   | "new_message"
-  | "project_video_added";
+  | "project_video_added"
+  | "creator_went_live";
 
 export interface Notification {
   notificationId: string;
@@ -341,4 +342,37 @@ export interface Presence {
   userId: string;
   status: PresenceStatus;
   lastActiveAt: Timestamp;
+}
+
+// ─── Live Streams ─────────────────────────────────────────
+
+export type StreamStatus = "live" | "ended" | "scheduled";
+
+export interface Stream {
+  id: string;
+  creatorId: string;
+  creatorName: string;
+  creatorAvatar: string | null;
+  title: string;
+  status: StreamStatus;
+  playbackId: string;
+  viewerCount: number;
+  startedAt: Timestamp | null;
+  endedAt: Timestamp | null;
+  thumbnailUrl: string | null;
+}
+
+export interface StreamViewerPresence {
+  userId: string;
+  joinedAt: Timestamp;
+  lastActiveAt: Timestamp;
+}
+
+export interface ChatMessage {
+  id: string;
+  userId: string;
+  userDisplayName: string;
+  userAvatar: string | null;
+  content: string;
+  createdAt: Timestamp;
 }

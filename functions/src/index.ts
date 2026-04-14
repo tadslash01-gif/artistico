@@ -13,3 +13,4 @@ export { onProductWritten } from "./triggers/onProductWritten";
 export { onProjectPublished } from "./triggers/onProjectPublished";
 export { onMessageCreated } from "./triggers/onMessageCreated";
 export { onVideoUploaded } from "./triggers/onVideoUploaded";
+export { onStreamStarted } from "./triggers/onStreamStarted";

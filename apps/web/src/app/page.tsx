@@ -7,6 +7,7 @@ import RecentlyAdded from "@/components/RecentlyAdded";
 import RecentlyAddedProducts from "@/components/RecentlyAddedProducts";
 import MomentumBar from "@/components/MomentumBar";
 import AliveFeeed from "@/components/AliveFeeed";
+import LiveNowRow from "@/components/LiveNowRow";
 
 // Sorted A–Z
 const CATEGORIES = [
@@ -99,9 +100,11 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Live Now — only rendered when creators are streaming */}
+      <LiveNowRow />
+
       {/* Trending Projects */}
-      <section id="trending" className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-center gap-2">
+      <section id="trending" className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8">        <div className="flex items-center justify-center gap-2">
           <span className="text-2xl" aria-hidden="true">🔥</span>
           <h2 className="text-center text-2xl font-bold text-foreground sm:text-3xl">
             Trending Projects
