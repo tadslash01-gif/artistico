@@ -13,7 +13,9 @@ export type AuditAction =
   | "stripe.account.create"
   | "download.access"
   | "stripe.onboarding"
-  | "webhook.received";
+  | "webhook.received"
+  | "stream.start"
+  | "stream.stop";
 
 interface AuditEntry {
   action: AuditAction;

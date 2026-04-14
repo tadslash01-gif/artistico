@@ -10,7 +10,7 @@ import { apiFetch } from "@/lib/api";
 import InquiryForm from "@/components/InquiryForm";
 import FollowButton from "@/components/FollowButton";
 import ProjectCard from "@/components/ProjectCard";
-import { PresenceIndicator } from "@/components/PresenceIndicator";
+import PresenceIndicator from "@/components/PresenceIndicator";
 
 interface CreatorData {
   uid: string;

@@ -16,7 +16,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
-import { PresenceIndicator } from "@/components/PresenceIndicator";
+import PresenceIndicator from "@/components/PresenceIndicator";
 
 interface ConversationItem {
   conversationId: string;
