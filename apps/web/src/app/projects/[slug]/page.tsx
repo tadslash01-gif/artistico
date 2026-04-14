@@ -15,6 +15,7 @@ import ShareButton from "@/components/ShareButton";
 import FollowButton from "@/components/FollowButton";
 import DifficultyBadge from "@/components/DifficultyBadge";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import VideoPlayer from "@/components/VideoPlayer";
 import {
   collection,
   query,
@@ -56,6 +57,9 @@ interface ProjectData {
   difficulty: "beginner" | "intermediate" | "advanced" | null;
   timeToBuild: string | null;
   createdAt: { seconds: number; nanoseconds: number } | null;
+  videoUrl?: string;
+  videoThumbnailUrl?: string;
+  videoDuration?: number;
 }
 
 interface ProductData {
@@ -285,6 +289,16 @@ export default function ProjectDetailPage({
       <div className="grid gap-10 lg:grid-cols-3">
         {/* Left Column: Images + Description */}
         <div className="lg:col-span-2">
+          {/* Video Player */}
+          {project.videoUrl && (
+            <div className="mb-6">
+              <VideoPlayer
+                src={project.videoUrl}
+                poster={project.videoThumbnailUrl}
+              />
+            </div>
+          )}
+
           {/* Image Gallery */}
           {project.images.length > 0 ? (
             <div>

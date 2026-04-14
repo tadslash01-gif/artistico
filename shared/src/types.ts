@@ -96,6 +96,9 @@ export interface Project {
   minPrice: number | null;
   creatorName: string;
   creatorAvatar: string | null;
+  videoUrl?: string;
+  videoThumbnailUrl?: string;
+  videoDuration?: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -134,6 +137,8 @@ export interface Product {
   commissionDetails: CommissionDetails | null;
   status: ProductStatus;
   salesCount: number;
+  videoUrl?: string;
+  videoThumbnailUrl?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -296,7 +301,8 @@ export type NotificationType =
   | "new_post"
   | "comment_on_project"
   | "reply_to_comment"
-  | "new_message";
+  | "new_message"
+  | "project_video_added";
 
 export interface Notification {
   notificationId: string;

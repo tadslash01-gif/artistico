@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api";
 import { doc, getDoc } from "firebase/firestore";
 import { firestore, storage } from "@/lib/firebase";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import VideoUpload from "@/components/VideoUpload";
 
 const PRODUCT_TYPES = [
   { value: "physical", label: "Physical Item", desc: "A tangible product shipped to the buyer" },
@@ -30,6 +31,7 @@ interface ProductData {
   shippingRequired: boolean;
   status: string;
   salesCount: number;
+  videoUrl?: string;
 }
 
 export default function EditProductPage({
@@ -67,6 +69,9 @@ export default function EditProductPage({
   const [uploadingFile, setUploadingFile] = useState(false);
   const [fileProgress, setFileProgress] = useState(0);
 
+  // Product video
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+
   useEffect(() => {
     async function fetchProduct() {
       if (!firestore || !user) return;
@@ -93,6 +98,7 @@ export default function EditProductPage({
         setStatus(data.status);
         setImages(data.images || []);
         setDigitalFileUrl(data.digitalFileUrl || "");
+        setVideoUrl(data.videoUrl || null);
       } catch {
         router.push("/dashboard/projects");
       } finally {
@@ -245,6 +251,7 @@ export default function EditProductPage({
         images,
         shippingRequired,
         status,
+        videoUrl: videoUrl ?? null,
       };
 
       if (type === "digital" || type === "template") {
@@ -530,6 +537,17 @@ export default function EditProductPage({
               </label>
             )}
           </div>
+        )}
+
+        {/* Product Video */}
+        {user && (
+          <VideoUpload
+            storagePath={`projects/${projectId}/products/${productId}/videos`}
+            value={videoUrl}
+            onChange={setVideoUrl}
+            label="Product Video"
+            customMetadata={{ creatorId: user.uid }}
+          />
         )}
 
         <div className="flex items-center gap-3">

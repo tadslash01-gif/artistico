@@ -2,3 +2,5 @@ packages:
   - "apps/*"
   - "functions"
   - "shared"
+allowBuilds:
+  ffmpeg-static: false

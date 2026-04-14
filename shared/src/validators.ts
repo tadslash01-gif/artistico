@@ -77,6 +77,9 @@ export const UpdateProjectSchema = z.object({
   useCase: z.string().min(10).max(200).nullable().optional(),
   difficulty: z.enum(["beginner", "intermediate", "advanced"]).nullable().optional(),
   timeToBuild: z.string().max(100).nullable().optional(),
+  videoUrl: z.string().url().nullable().optional(),
+  videoThumbnailUrl: z.string().url().nullable().optional(),
+  videoDuration: z.number().min(0).nullable().optional(),
 });
 
 // Product schemas
@@ -132,6 +135,8 @@ export const UpdateProductSchema = z.object({
     .nullable()
     .optional(),
   status: z.enum(["active", "sold_out", "inactive"]).optional(),
+  videoUrl: z.string().url().nullable().optional(),
+  videoThumbnailUrl: z.string().url().nullable().optional(),
 });
 
 // Review schema

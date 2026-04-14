@@ -12,6 +12,7 @@ import {
   uploadBytesResumable,
   getDownloadURL,
 } from "firebase/storage";
+import VideoUpload from "@/components/VideoUpload";
 
 const CATEGORIES = [
   "woodworking",
@@ -40,6 +41,8 @@ interface ProjectData {
   category: string;
   status: string;
   productCount: number;
+  videoUrl?: string;
+  videoThumbnailUrl?: string;
 }
 
 interface ProductData {
@@ -78,6 +81,9 @@ export default function ProjectEditPage({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  // Video
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+
   useEffect(() => {
     async function fetchProject() {
       if (!firestore || !user) return;
@@ -101,6 +107,7 @@ export default function ProjectEditPage({
         setTags(proj.tags.join(", "));
         setMaterialsUsed(proj.materialsUsed.join(", "));
         setImages(proj.images || []);
+        setVideoUrl(proj.videoUrl || null);
 
         // Fetch products
         const productsSnap = await getDocs(
@@ -210,6 +217,7 @@ export default function ProjectEditPage({
             .map((m) => m.trim())
             .filter(Boolean),
           images,
+          videoUrl: videoUrl ?? null,
         }),
       });
       setSuccess("Project saved successfully! Your changes are live.");
@@ -347,6 +355,17 @@ export default function ProjectEditPage({
             Max 10MB per image. JPEG, PNG, WebP.
           </p>
         </div>
+
+        {/* Project Video */}
+        {user && (
+          <VideoUpload
+            storagePath={`projects/${projectId}/videos`}
+            value={videoUrl}
+            onChange={setVideoUrl}
+            label="Project Video"
+            customMetadata={{ creatorId: user.uid }}
+          />
+        )}
 
         <div>
           <label htmlFor="title" className="block text-sm font-medium text-foreground">

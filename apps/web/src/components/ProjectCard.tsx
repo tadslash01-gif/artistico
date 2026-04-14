@@ -24,6 +24,7 @@ interface ProjectCardProps {
     minPrice?: number | null;
     creatorName?: string;
     creatorAvatar?: string | null;
+    videoThumbnailUrl?: string;
   };
 }
 
@@ -46,10 +47,10 @@ export default function ProjectCard({ project }: ProjectCardProps) {
 
       <Link href={`/projects/${project.slug}`}>
         {/* Image */}
-        <div className="aspect-[3/2] overflow-hidden bg-muted rounded-t-2xl">
-          {project.images?.[0] ? (
+        <div className="aspect-[3/2] overflow-hidden bg-muted rounded-t-2xl relative">
+          {project.images?.[0] || project.videoThumbnailUrl ? (
             <Image
-              src={project.images[0]}
+              src={project.videoThumbnailUrl ?? project.images[0]}
               alt={project.title}
               width={600}
               height={400}
@@ -59,6 +60,19 @@ export default function ProjectCard({ project }: ProjectCardProps) {
           ) : (
             <div className="flex h-full items-center justify-center text-4xl text-muted-foreground">
               🎨
+            </div>
+          )}
+          {/* Video indicator */}
+          {project.videoThumbnailUrl && (
+            <div className="absolute top-2 left-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="white"
+                className="h-3.5 w-3.5 translate-x-0.5"
+              >
+                <path d="M8 5v14l11-7L8 5z" />
+              </svg>
             </div>
           )}
         </div>

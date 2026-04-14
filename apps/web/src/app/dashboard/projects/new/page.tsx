@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { firestore, storage } from "@/lib/firebase";
+import VideoUpload from "@/components/VideoUpload";
 
 const CATEGORIES = [
   "woodworking",
@@ -65,6 +66,9 @@ export default function NewProjectPage() {
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Optional project video
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -197,6 +201,7 @@ export default function NewProjectPage() {
         averageRating: 0,
         reviewCount: 0,
         viewCount: 0,
+        ...(videoUrl ? { videoUrl } : {}),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -523,6 +528,17 @@ export default function NewProjectPage() {
             Max 10MB per image. JPEG, PNG, WebP. {images.length}/5 uploaded.
           </p>
         </div>
+
+        {/* Project Video */}
+        {!isQuickMode && user && (
+          <VideoUpload
+            storagePath={`projects/temp-${user.uid}/videos`}
+            value={videoUrl}
+            onChange={setVideoUrl}
+            label="Project Video"
+            customMetadata={{ creatorId: user.uid }}
+          />
+        )}
 
         <div className="flex items-center gap-3">
           <button
