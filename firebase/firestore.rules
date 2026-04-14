@@ -170,5 +170,29 @@ service cloud.firestore {
         allow update, delete: if false;
       }
     }
+
+    // ─── Comments ────────────────────────────────────────────
+    match /comments/{commentId} {
+      // Anyone can read comments (public)
+      allow read: if true;
+      // Authenticated users can create their own comments
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.content.size() >= 1
+                    && request.resource.data.content.size() <= 1000;
+      // Only the comment owner can delete
+      allow delete: if isAuthenticated()
+                    && request.auth.uid == resource.data.userId;
+      // No updates (content is immutable; like counts managed server-side)
+      allow update: if false;
+    }
+
+    // ─── Presence ────────────────────────────────────────────
+    match /presence/{userId} {
+      // Any authenticated user can read presence (for messaging/profile UI)
+      allow read: if isAuthenticated();
+      // Users can only write their own presence document
+      allow write: if isOwner(userId);
+    }
   }
 }

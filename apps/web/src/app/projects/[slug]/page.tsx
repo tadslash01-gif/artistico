@@ -9,6 +9,7 @@ import { apiFetch } from "@/lib/api";
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import InquiryForm from "@/components/InquiryForm";
 import ReviewForm from "@/components/ReviewForm";
+import CommentSection from "@/components/CommentSection";
 import SaveButton from "@/components/SaveButton";
 import ShareButton from "@/components/ShareButton";
 import FollowButton from "@/components/FollowButton";
@@ -645,6 +646,12 @@ export default function ProjectDetailPage({
           </div>
           {/* Related Projects */}
           <RelatedProjects category={project.category} excludeProjectId={project.projectId} />
+
+          {/* Comments */}
+          <CommentSection
+            projectId={project.projectId}
+            projectOwnerId={project.creatorId}
+          />
         </div>
 
         {/* Right Column: Products + Creator */}

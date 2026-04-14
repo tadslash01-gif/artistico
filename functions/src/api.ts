@@ -19,6 +19,7 @@ import {
   FollowCreatorSchema,
   UpdateNotificationPrefsSchema,
   CreateReportSchema,
+  CreateCommentSchema,
   PROJECT_CATEGORIES,
 } from "@artistico/shared";
 
@@ -1165,6 +1166,165 @@ const routes: Record<string, RouteHandler> = {
     res.status(201).json({ reportId: reportRef.id });
   },
 
+  // ─── Comments ─────────────────────────────────────────
+  "POST /comments": async (req, res) => {
+    const parsed = CreateCommentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
+      return;
+    }
+    const { projectId, content, parentId } = parsed.data;
+    const safeContent = stripHtml(content);
+
+    // Verify project exists
+    const projectDoc = await db.collection("projects").doc(projectId).get();
+    if (!projectDoc.exists) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    const projectData = projectDoc.data()!;
+
+    // Verify parentId exists if provided
+    let parentUserId: string | null = null;
+    if (parentId) {
+      const parentDoc = await db.collection("comments").doc(parentId).get();
+      if (!parentDoc.exists) {
+        res.status(404).json({ error: "Parent comment not found" });
+        return;
+      }
+      parentUserId = parentDoc.data()!.userId as string;
+    }
+
+    // Fetch actor data for the comment and notifications
+    const actorDoc = await db.collection("users").doc(req.user!.uid).get();
+    const actorData = actorDoc.data();
+
+    const commentRef = db.collection("comments").doc();
+    const comment = {
+      commentId: commentRef.id,
+      projectId,
+      userId: req.user!.uid,
+      userDisplayName: actorData?.displayName || "Anonymous",
+      userAvatar: actorData?.photoURL || null,
+      content: safeContent,
+      parentId: parentId || null,
+      likeCount: 0,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: null,
+    };
+    await commentRef.set(comment);
+
+    // — Notifications (fire-and-forget, non-blocking)
+    const notifications: Promise<unknown>[] = [];
+
+    // Notify project owner on top-level comment
+    if (!parentId) {
+      const ownerId: string = projectData.creatorId;
+      if (ownerId && ownerId !== req.user!.uid) {
+        const notifRef = db.collection("notifications").doc();
+        notifications.push(
+          notifRef.set({
+            notificationId: notifRef.id,
+            recipientId: ownerId,
+            type: "comment_on_project",
+            actorId: req.user!.uid,
+            actorName: actorData?.displayName || "Someone",
+            actorAvatar: actorData?.photoURL || null,
+            entityId: projectId,
+            entityTitle: projectData.title || "Untitled Project",
+            entitySlug: projectData.slug || projectId,
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          })
+        );
+      }
+    }
+
+    // Notify parent comment author on reply
+    if (parentId && parentUserId && parentUserId !== req.user!.uid) {
+      const notifRef = db.collection("notifications").doc();
+      notifications.push(
+        notifRef.set({
+          notificationId: notifRef.id,
+          recipientId: parentUserId,
+          type: "reply_to_comment",
+          actorId: req.user!.uid,
+          actorName: actorData?.displayName || "Someone",
+          actorAvatar: actorData?.photoURL || null,
+          entityId: projectId,
+          entityTitle: projectData.title || "Untitled Project",
+          entitySlug: projectData.slug || projectId,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        })
+      );
+    }
+
+    // Also notify project owner when a reply is made (if different from parent author)
+    if (parentId && parentUserId) {
+      const ownerId: string = projectData.creatorId;
+      if (ownerId && ownerId !== req.user!.uid && ownerId !== parentUserId) {
+        const notifRef = db.collection("notifications").doc();
+        notifications.push(
+          notifRef.set({
+            notificationId: notifRef.id,
+            recipientId: ownerId,
+            type: "comment_on_project",
+            actorId: req.user!.uid,
+            actorName: actorData?.displayName || "Someone",
+            actorAvatar: actorData?.photoURL || null,
+            entityId: projectId,
+            entityTitle: projectData.title || "Untitled Project",
+            entitySlug: projectData.slug || projectId,
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          })
+        );
+      }
+    }
+
+    // Fire notifications non-blocking; failures don't fail the request
+    Promise.all(notifications).catch((err) =>
+      console.error("[comments] notification write failed:", err)
+    );
+
+    res.status(201).json({ commentId: commentRef.id });
+  },
+
+  "GET /comments": async (req, res) => {
+    const projectId = req.query.projectId as string | undefined;
+    if (!projectId) {
+      res.status(400).json({ error: "projectId query parameter is required" });
+      return;
+    }
+
+    const snap = await db
+      .collection("comments")
+      .where("projectId", "==", projectId)
+      .orderBy("createdAt", "asc")
+      .limit(200)
+      .get();
+
+    res.json({ comments: snap.docs.map((d) => d.data()) });
+  },
+
+  "DELETE /comments/:commentId": async (req, res) => {
+    const commentId = req.params!.commentId;
+    const commentDoc = await db.collection("comments").doc(commentId).get();
+
+    if (!commentDoc.exists) {
+      res.status(404).json({ error: "Comment not found" });
+      return;
+    }
+    if (commentDoc.data()!.userId !== req.user!.uid) {
+      res.status(403).json({ error: "You can only delete your own comments" });
+      return;
+    }
+
+    await commentDoc.ref.delete();
+    res.json({ success: true });
+  },
+
   // ─── Disputes ─────────────────────────────────────────
   "POST /orders/:orderId/dispute": async (req, res) => {
     const orderId = req.params!.orderId;
@@ -1260,6 +1420,7 @@ const PUBLIC_ROUTES = [
   "GET /reviews",
   "GET /stats/platform",
   "GET /activity",
+  "GET /comments",
 ];
 
 function isPublicRoute(method: string, path: string): boolean {

@@ -217,3 +217,12 @@ export const UpdateNotificationPrefsSchema = z.object({
 });
 
 export type UpdateNotificationPrefsInput = z.infer<typeof UpdateNotificationPrefsSchema>;
+
+// Comment schemas
+export const CreateCommentSchema = z.object({
+  projectId: z.string().min(1),
+  content: z.string().min(1).max(1000),
+  parentId: z.string().min(1).nullable().optional(),
+});
+
+export type CreateCommentInput = z.infer<typeof CreateCommentSchema>;

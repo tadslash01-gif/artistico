@@ -10,6 +10,7 @@ import { apiFetch } from "@/lib/api";
 import InquiryForm from "@/components/InquiryForm";
 import FollowButton from "@/components/FollowButton";
 import ProjectCard from "@/components/ProjectCard";
+import { PresenceIndicator } from "@/components/PresenceIndicator";
 
 interface CreatorData {
   uid: string;
@@ -196,6 +197,9 @@ export default function CreatorProfilePage({
             <h1 className="text-2xl font-bold text-foreground">
               {creator.displayName}
             </h1>
+            <div className="mt-1">
+              <PresenceIndicator userId={uid} />
+            </div>
             {profile?.location && (
               <p className="mt-1 text-sm text-muted-foreground">
                 📍 {profile.location}

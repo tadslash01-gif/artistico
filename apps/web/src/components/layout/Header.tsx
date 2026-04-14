@@ -6,18 +6,20 @@ import { useEffect, useRef, useState } from "react";
 import { collection, onSnapshot, query, where, orderBy, limit } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import { useAuth } from "@/hooks/useAuth";
+import { usePresence } from "@/hooks/usePresence";
 import { ArtisticoLogo } from "@/components/branding/ArtisticoLogo";
 import { apiFetch } from "@/lib/api";
 
 interface InAppNotification {
   notificationId: string;
   recipientId: string;
-  type: "follow" | "bookmark" | "new_post";
+  type: "follow" | "bookmark" | "new_post" | "comment_on_project" | "reply_to_comment" | "new_message";
   actorId: string;
   actorName: string;
   actorAvatar: string | null;
   entityTitle?: string;
   entitySlug?: string;
+  entityId?: string;
   read: boolean;
   createdAt: { seconds: number; nanoseconds: number } | null;
 }
@@ -67,7 +69,26 @@ function NotificationBell({ userId }: { userId: string }) {
     if (n.type === "follow") return `${n.actorName} started following you`;
     if (n.type === "bookmark") return `${n.actorName} bookmarked your project`;
     if (n.type === "new_post") return `${n.actorName} posted a new project${n.entityTitle ? `: ${n.entityTitle}` : ""}`;
+    if (n.type === "comment_on_project") return `${n.actorName} commented on your project${n.entityTitle ? ` "${n.entityTitle}"` : ""}`;
+    if (n.type === "reply_to_comment") return `${n.actorName} replied to your comment`;
+    if (n.type === "new_message") return `${n.actorName} sent you a message`;
     return "New notification";
+  }
+
+  function notificationIcon(type: InAppNotification["type"]) {
+    if (type === "follow") return "👤";
+    if (type === "bookmark") return "🔖";
+    if (type === "new_post") return "🎨";
+    if (type === "comment_on_project") return "💬";
+    if (type === "reply_to_comment") return "↩️";
+    if (type === "new_message") return "✉️";
+    return "🔔";
+  }
+
+  function notificationHref(n: InAppNotification): string {
+    if (n.type === "new_message") return "/dashboard/messages";
+    if (n.entitySlug) return `/projects/${n.entitySlug}`;
+    return "#";
   }
 
   return (
@@ -124,21 +145,34 @@ function NotificationBell({ userId }: { userId: string }) {
                 key={n.notificationId}
                 className={`flex items-start gap-3 px-4 py-3 ${!n.read ? "bg-primary/5" : ""}`}
               >
-                {n.actorAvatar ? (
-                  <Image
-                    src={n.actorAvatar}
-                    alt={n.actorName}
-                    width={32}
-                    height={32}
-                    className="mt-0.5 h-8 w-8 shrink-0 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                    {(n.actorName || "?")[0].toUpperCase()}
+                <div className="relative">
+                  {n.actorAvatar ? (
+                    <Image
+                      src={n.actorAvatar}
+                      alt={n.actorName}
+                      width={32}
+                      height={32}
+                      className="mt-0.5 h-8 w-8 shrink-0 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                      {(n.actorName || "?")[0].toUpperCase()}
+                    </span>
+                  )}
+                  <span className="absolute -bottom-0.5 -right-0.5 text-[11px] leading-none">
+                    {notificationIcon(n.type)}
                   </span>
-                )}
-                <div className="min-w-0">
-                  <p className="text-sm text-foreground leading-snug">{notificationText(n)}</p>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={notificationHref(n)}
+                    onClick={() => setOpen(false)}
+                    className="block"
+                  >
+                    <p className="text-sm text-foreground leading-snug hover:text-primary transition-colors">
+                      {notificationText(n)}
+                    </p>
+                  </Link>
                   {n.createdAt && (
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {new Date(n.createdAt.seconds * 1000).toLocaleDateString()}
@@ -159,6 +193,7 @@ function NotificationBell({ userId }: { userId: string }) {
 
 export function Header() {
   const { user, userData, signOut, loading } = useAuth();
+  usePresence(user?.uid ?? null);
 
   return (
     <header className="border-b border-border bg-white">

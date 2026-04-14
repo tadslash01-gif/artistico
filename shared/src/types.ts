@@ -290,7 +290,13 @@ export interface Report {
 
 // ─── Notifications ───────────────────────────────────────
 
-export type NotificationType = "follow" | "bookmark";
+export type NotificationType =
+  | "follow"
+  | "bookmark"
+  | "new_post"
+  | "comment_on_project"
+  | "reply_to_comment"
+  | "new_message";
 
 export interface Notification {
   notificationId: string;
@@ -299,6 +305,34 @@ export interface Notification {
   actorId: string;
   actorName: string;
   actorAvatar: string | null;
+  entityId?: string;
+  entityTitle?: string;
+  entitySlug?: string;
   read: boolean;
   createdAt: Timestamp;
+}
+
+// ─── Comments ────────────────────────────────────────────
+
+export interface Comment {
+  commentId: string;
+  projectId: string;
+  userId: string;
+  userDisplayName: string;
+  userAvatar: string | null;
+  content: string;
+  parentId: string | null;
+  likeCount: number;
+  createdAt: Timestamp;
+  updatedAt: Timestamp | null;
+}
+
+// ─── Presence ────────────────────────────────────────────
+
+export type PresenceStatus = "online" | "offline";
+
+export interface Presence {
+  userId: string;
+  status: PresenceStatus;
+  lastActiveAt: Timestamp;
 }
