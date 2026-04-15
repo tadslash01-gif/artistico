@@ -13,10 +13,9 @@ import {
   onSnapshot,
   type DocumentSnapshot,
 } from "firebase/firestore";
-import { scoreProject, fetchFeedBatch, FEED_PAGE_SIZE } from "@/lib/feed";
-import type { Project } from "@artistico/shared";
+import { scoreProject, fetchFeedBatch, FEED_PAGE_SIZE, type FeedProject } from "@/lib/feed";
 
-interface ScoredProject extends Project {
+interface ScoredProject extends FeedProject {
   _score: number;
 }
 
@@ -42,7 +41,7 @@ export default function SmartFeedPage() {
   // Firestore cursor for pagination
   const lastDocRef = useRef<DocumentSnapshot | null>(null);
   // All accumulated raw projects across batches
-  const allProjectsRef = useRef<Project[]>([]);
+  const allProjectsRef = useRef<FeedProject[]>([]);
   // Page cursor into the sorted list
   const pageRef = useRef(0);
 
@@ -84,7 +83,7 @@ export default function SmartFeedPage() {
           }),
           firestore
             ? fetchFeedBatch(firestore)
-            : Promise.resolve({ projects: [] as Project[], lastDoc: null }),
+            : Promise.resolve({ projects: [] as FeedProject[], lastDoc: null }),
         ]);
 
         if (cancelled) return;

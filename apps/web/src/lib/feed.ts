@@ -9,7 +9,38 @@ import {
   type DocumentSnapshot,
   type Firestore,
 } from "firebase/firestore";
-import type { Project } from "@artistico/shared";
+/** Minimal project shape required by the smart feed (scoring + display). */
+export interface FeedProject {
+  projectId: string;
+  creatorId: string;
+  title: string;
+  slug: string;
+  description: string;
+  images: string[];
+  category: string;
+  difficulty?: "beginner" | "intermediate" | "advanced" | null;
+  productCount: number;
+  averageRating: number;
+  reviewCount: number;
+  viewCount?: number;
+  savesCount?: number;
+  likeCount?: number;
+  commentCount?: number;
+  totalSalesCount?: number;
+  minPrice?: number | null;
+  creatorName?: string;
+  creatorAvatar?: string | null;
+  videoUrl?: string;
+  videoThumbnailUrl?: string;
+  clipUrl?: string;
+  clipThumbnailUrl?: string;
+  clipPlaybackId?: string;
+  clipStatus?: "processing" | "ready";
+  status: string;
+  trendingScore?: number;
+  // Firestore Timestamp shape
+  createdAt?: { seconds: number; nanoseconds: number } | null;
+}
 
 /** Number of projects scored in each Firestore batch */
 export const FEED_BATCH_SIZE = 60;
@@ -38,7 +69,7 @@ const LIVE_BOOST = 50;
  * Followed creators get a strong personalisation boost.
  */
 export function scoreProject(
-  project: Project,
+  project: FeedProject,
   followedIds: Set<string>,
   liveCreatorIds: Set<string>
 ): number {
@@ -80,7 +111,7 @@ export function scoreProject(
 export async function fetchFeedBatch(
   db: Firestore,
   cursor?: DocumentSnapshot
-): Promise<{ projects: Project[]; lastDoc: DocumentSnapshot | null }> {
+): Promise<{ projects: FeedProject[]; lastDoc: DocumentSnapshot | null }> {
   const baseQuery = [
     collection(db, "projects"),
     where("status", "==", "published"),
@@ -93,7 +124,7 @@ export async function fetchFeedBatch(
     : query(...baseQuery);
 
   const snap = await getDocs(q);
-  const projects = snap.docs.map((d) => d.data() as Project);
+  const projects = snap.docs.map((d) => d.data() as FeedProject);
   const lastDoc = snap.docs[snap.docs.length - 1] ?? null;
   return { projects, lastDoc };
 }
