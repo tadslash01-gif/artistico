@@ -1,20 +1,45 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { apiFetch } from "@/lib/api";
 
 interface ShareButtonProps {
   projectTitle: string;
   projectSlug: string;
+  projectId: string;
 }
 
-export default function ShareButton({ projectTitle, projectSlug }: ShareButtonProps) {
+export default function ShareButton({ projectTitle, projectSlug, projectId }: ShareButtonProps) {
+  const { user } = useAuth();
   const [copied, setCopied] = useState(false);
 
-  const projectUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/projects/${encodeURIComponent(projectSlug)}`
-    : `/projects/${encodeURIComponent(projectSlug)}`;
+  const buildUrl = (ref?: string) => {
+    const base =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/projects/${encodeURIComponent(projectSlug)}`
+        : `/projects/${encodeURIComponent(projectSlug)}`;
+    return ref ? `${base}?ref=${encodeURIComponent(ref)}` : base;
+  };
+
+  /** Fire-and-forget share tracking — never blocks the UI */
+  const trackShare = useCallback(
+    (platform: "native" | "copy_link" | "twitter") => {
+      if (!user) return;
+      // Include the current user's id as the referral source
+      const ref = user.uid;
+      apiFetch("/share", {
+        method: "POST",
+        body: JSON.stringify({ projectId, platform, ref }),
+      }).catch(() => {});
+    },
+    [user, projectId]
+  );
 
   const handleShare = useCallback(async () => {
+    const ref = user?.uid;
+    const projectUrl = buildUrl(ref);
+
     // Try native Web Share API first (mobile + supported browsers)
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
@@ -23,6 +48,7 @@ export default function ShareButton({ projectTitle, projectSlug }: ShareButtonPr
           text: `Check out "${projectTitle}" on Artistico`,
           url: projectUrl,
         });
+        trackShare("native");
         return;
       } catch {
         // User cancelled or API failed — fall through to clipboard
@@ -34,11 +60,12 @@ export default function ShareButton({ projectTitle, projectSlug }: ShareButtonPr
       await navigator.clipboard.writeText(projectUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      trackShare("copy_link");
     } catch {
       // Last resort: prompt-based copy
       window.prompt("Copy this link:", projectUrl);
     }
-  }, [projectTitle, projectUrl]);
+  }, [projectTitle, projectId, user, trackShare]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <button
@@ -53,3 +80,4 @@ export default function ShareButton({ projectTitle, projectSlug }: ShareButtonPr
     </button>
   );
 }
+

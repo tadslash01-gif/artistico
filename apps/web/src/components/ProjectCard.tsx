@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import DifficultyBadge from "./DifficultyBadge";
 import SaveButton from "./SaveButton";
+import LikeButton from "./LikeButton";
 import { formatCurrency } from "@/lib/utils";
 
 interface ProjectCardProps {
@@ -20,25 +21,35 @@ interface ProjectCardProps {
     averageRating: number;
     reviewCount: number;
     savesCount?: number;
+    likeCount?: number;
     totalSalesCount?: number;
     minPrice?: number | null;
     creatorName?: string;
     creatorAvatar?: string | null;
     videoThumbnailUrl?: string;
+    clipUrl?: string;
+    clipStatus?: "processing" | "ready";
   };
+  isLive?: boolean;
+  isLiked?: boolean;
 }
 
-export default function ProjectCard({ project }: ProjectCardProps) {
+export default function ProjectCard({ project, isLive = false, isLiked = false }: ProjectCardProps) {
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
     <div className="group relative overflow-hidden rounded-2xl bg-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)] transition-all duration-300 hover:scale-[1.02]">
-      {/* Save overlay */}
+      {/* Action overlays (save + like) */}
       <div
-        className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 sm:transition-opacity"
+        className="absolute top-2 right-2 z-10 flex gap-1.5 opacity-0 group-hover:opacity-100 sm:transition-opacity"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
+        <LikeButton
+          projectId={project.projectId}
+          initialCount={project.likeCount ?? 0}
+          initialLiked={isLiked}
+        />
         <SaveButton
           projectId={project.projectId}
           initialCount={project.savesCount ?? 0}
@@ -62,8 +73,24 @@ export default function ProjectCard({ project }: ProjectCardProps) {
               🎨
             </div>
           )}
-          {/* Video indicator */}
-          {project.videoThumbnailUrl && (
+
+          {/* LIVE badge */}
+          {isLive && (
+            <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+              LIVE
+            </div>
+          )}
+
+          {/* Clip badge */}
+          {!isLive && project.clipStatus === "ready" && project.clipUrl && (
+            <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow">
+              ✂ Clip
+            </div>
+          )}
+
+          {/* Video indicator (only if no live/clip badge) */}
+          {!isLive && project.clipStatus !== "ready" && project.videoThumbnailUrl && (
             <div className="absolute top-2 left-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -120,6 +147,11 @@ export default function ProjectCard({ project }: ProjectCardProps) {
             {project.averageRating > 0 && (
               <span aria-label={`${project.averageRating.toFixed(1)} stars`}>
                 ★ {project.averageRating.toFixed(1)}
+              </span>
+            )}
+            {(project.likeCount ?? 0) > 0 && (
+              <span aria-label={`${project.likeCount} likes`}>
+                ♥ {project.likeCount}
               </span>
             )}
             {(project.savesCount ?? 0) > 0 && (

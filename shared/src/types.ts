@@ -87,6 +87,9 @@ export interface Project {
   averageRating: number;
   reviewCount: number;
   viewCount: number;
+  likeCount: number;
+  commentCount: number;
+  shareCount: number;
   creatorStory: string | null;
   useCase: string | null;
   difficulty: ProjectDifficulty | null;
@@ -99,6 +102,10 @@ export interface Project {
   videoUrl?: string;
   videoThumbnailUrl?: string;
   videoDuration?: number;
+  clipUrl?: string;
+  clipThumbnailUrl?: string;
+  clipPlaybackId?: string;
+  clipStatus?: "processing" | "ready";
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -260,6 +267,29 @@ export interface Save {
   createdAt: Timestamp;
 }
 
+// ─── Likes ───────────────────────────────────────────────
+
+export interface Like {
+  likeId: string;
+  userId: string;
+  projectId: string;
+  createdAt: Timestamp;
+}
+
+// ─── Shares ──────────────────────────────────────────────
+
+export type SharePlatform = "copy_link" | "native" | "twitter";
+
+export interface Share {
+  shareId: string;
+  userId: string;
+  projectId: string;
+  platform: SharePlatform;
+  /** Referral userId — populated when link contains ?ref=userId */
+  ref?: string;
+  createdAt: Timestamp;
+}
+
 // ─── Follows ─────────────────────────────────────────────
 
 export interface Follow {
@@ -298,6 +328,7 @@ export interface Report {
 export type NotificationType =
   | "follow"
   | "bookmark"
+  | "like_on_project"
   | "new_post"
   | "comment_on_project"
   | "reply_to_comment"
@@ -360,6 +391,8 @@ export interface Stream {
   startedAt: Timestamp | null;
   endedAt: Timestamp | null;
   thumbnailUrl: string | null;
+  /** Optional: link this stream to a project so a clip can be auto-generated on stream end */
+  projectId?: string;
 }
 
 export interface StreamViewerPresence {

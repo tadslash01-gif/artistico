@@ -60,6 +60,9 @@ interface ProjectData {
   videoUrl?: string;
   videoThumbnailUrl?: string;
   videoDuration?: number;
+  clipUrl?: string;
+  clipThumbnailUrl?: string;
+  clipStatus?: "processing" | "ready";
 }
 
 interface ProductData {
@@ -299,6 +302,31 @@ export default function ProjectDetailPage({
             </div>
           )}
 
+          {/* Clip Player */}
+          {project.clipStatus === "ready" && project.clipUrl && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-700">
+                  ✂ Clip
+                </span>
+                <span className="text-xs text-muted-foreground">Auto-generated highlight from live stream</span>
+              </div>
+              <VideoPlayer
+                src={project.clipUrl}
+                poster={project.clipThumbnailUrl}
+              />
+            </div>
+          )}
+          {project.clipStatus === "processing" && (
+            <div className="mb-6 flex items-center gap-2 rounded-lg border border-purple-200 bg-purple-50 px-4 py-3">
+              <svg className="h-4 w-4 animate-spin text-purple-500" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              <span className="text-xs text-purple-700">Processing live stream clip… check back soon.</span>
+            </div>
+          )}
+
           {/* Image Gallery */}
           {project.images.length > 0 ? (
             <div>
@@ -352,6 +380,7 @@ export default function ProjectDetailPage({
               <ShareButton
                 projectTitle={project.title}
                 projectSlug={project.slug}
+                projectId={project.projectId}
               />
               <SaveButton
                 projectId={project.projectId}

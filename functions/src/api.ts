@@ -1573,6 +1573,220 @@ const routes: Record<string, RouteHandler> = {
     }
     res.json(doc.data());
   },
+
+  // ─── Likes ────────────────────────────────────────────
+
+  "POST /likes": async (req, res) => {
+    const { projectId } = req.body || {};
+    if (!projectId || typeof projectId !== "string") {
+      res.status(400).json({ error: "projectId is required" });
+      return;
+    }
+
+    // Prevent duplicate likes
+    const existing = await db
+      .collection("likes")
+      .where("userId", "==", req.user!.uid)
+      .where("projectId", "==", projectId)
+      .limit(1)
+      .get();
+    if (!existing.empty) {
+      res.status(409).json({ error: "Already liked" });
+      return;
+    }
+
+    const projectRef = db.collection("projects").doc(projectId);
+    const projectDoc = await projectRef.get();
+    if (!projectDoc.exists) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    const creatorId: string = projectDoc.data()!.creatorId;
+
+    const likeRef = db.collection("likes").doc();
+    const batch = db.batch();
+    batch.set(likeRef, {
+      likeId: likeRef.id,
+      userId: req.user!.uid,
+      projectId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    batch.update(projectRef, { likeCount: admin.firestore.FieldValue.increment(1) });
+    await batch.commit();
+
+    // Notify project creator (not self-like)
+    if (creatorId && creatorId !== req.user!.uid) {
+      const actorDoc = await db.collection("users").doc(req.user!.uid).get();
+      const notifRef = db.collection("notifications").doc();
+      await notifRef.set({
+        notificationId: notifRef.id,
+        recipientId: creatorId,
+        type: "like_on_project",
+        actorId: req.user!.uid,
+        actorName: actorDoc.data()?.displayName || "Someone",
+        actorAvatar: actorDoc.data()?.photoURL || null,
+        entityId: projectId,
+        entityTitle: projectDoc.data()!.title,
+        entitySlug: projectDoc.data()!.slug,
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    const updated = await projectRef.get();
+    res.status(201).json({ liked: true, likeCount: updated.data()?.likeCount ?? 1 });
+  },
+
+  "DELETE /likes/:projectId": async (req, res) => {
+    const projectId = req.params!.projectId;
+    const snapshot = await db
+      .collection("likes")
+      .where("userId", "==", req.user!.uid)
+      .where("projectId", "==", projectId)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      res.status(404).json({ error: "Like not found" });
+      return;
+    }
+
+    const projectRef = db.collection("projects").doc(projectId);
+    const batch = db.batch();
+    batch.delete(snapshot.docs[0].ref);
+    batch.update(projectRef, {
+      likeCount: admin.firestore.FieldValue.increment(-1),
+    });
+    await batch.commit();
+
+    const updated = await projectRef.get();
+    res.json({ liked: false, likeCount: Math.max(0, updated.data()?.likeCount ?? 0) });
+  },
+
+  "GET /likes/status/:projectId": async (req, res) => {
+    const projectId = req.params!.projectId;
+    const snapshot = await db
+      .collection("likes")
+      .where("userId", "==", req.user!.uid)
+      .where("projectId", "==", projectId)
+      .limit(1)
+      .get();
+    res.json({ liked: !snapshot.empty });
+  },
+
+  // ─── Shares ───────────────────────────────────────────
+
+  "POST /share": async (req, res) => {
+    const { projectId, platform, ref: refParam } = req.body || {};
+    if (!projectId || typeof projectId !== "string") {
+      res.status(400).json({ error: "projectId is required" });
+      return;
+    }
+    const allowedPlatforms = ["copy_link", "native", "twitter"];
+    const safePlatform = allowedPlatforms.includes(platform) ? platform : "copy_link";
+
+    const projectRef = db.collection("projects").doc(projectId);
+    const projectDoc = await projectRef.get();
+    if (!projectDoc.exists) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    // Validate ref param is a non-empty string (referral userId)
+    const safeRef = typeof refParam === "string" && refParam.length > 0 && refParam.length <= 128
+      ? refParam
+      : undefined;
+
+    const shareRef = db.collection("shares").doc();
+    const batch = db.batch();
+    batch.set(shareRef, {
+      shareId: shareRef.id,
+      userId: req.user!.uid,
+      projectId,
+      platform: safePlatform,
+      ...(safeRef ? { ref: safeRef } : {}),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    batch.update(projectRef, { shareCount: admin.firestore.FieldValue.increment(1) });
+    await batch.commit();
+
+    res.status(201).json({ shareId: shareRef.id });
+  },
+
+  // ─── View Tracking ────────────────────────────────────
+
+  "POST /projects/:projectId/view": async (req, res) => {
+    const projectId = req.params!.projectId;
+    // Fire-and-forget increment — don't fail the request if the project is missing
+    db.collection("projects")
+      .doc(projectId)
+      .update({ viewCount: admin.firestore.FieldValue.increment(1) })
+      .catch((err) => console.warn("[view] increment failed:", err));
+    res.json({ success: true });
+  },
+
+  // ─── Mux Webhook (clip completion) ────────────────────
+
+  "POST /mux-webhook": async (req, res) => {
+    // Verify Mux signature to prevent spoofed webhooks
+    const muxSignatureHeader = req.headers["mux-signature"];
+    const webhookSecret = process.env.MUX_WEBHOOK_SECRET;
+    if (webhookSecret && muxSignatureHeader) {
+      const sigStr = Array.isArray(muxSignatureHeader)
+        ? muxSignatureHeader[0]
+        : muxSignatureHeader;
+      // Mux uses: mux-signature: t=<timestamp>,v1=<hmac-sha256>
+      const parts = sigStr.split(",");
+      const tPart = parts.find((p) => p.startsWith("t="));
+      const vPart = parts.find((p) => p.startsWith("v1="));
+      if (!tPart || !vPart) {
+        res.status(401).json({ error: "Invalid signature format" });
+        return;
+      }
+      const timestamp = tPart.slice(2);
+      const receivedSig = vPart.slice(3);
+      const payload = `${timestamp}.${req.rawBody?.toString("utf8") ?? ""}`;
+      const expected = crypto
+        .createHmac("sha256", webhookSecret)
+        .update(payload)
+        .digest("hex");
+      if (receivedSig !== expected) {
+        res.status(401).json({ error: "Signature mismatch" });
+        return;
+      }
+    }
+
+    const event = req.body;
+    if (event?.type === "video.asset.ready" && event?.data?.id) {
+      const assetId: string = event.data.id;
+      const playbackIds: Array<{ id: string }> = event.data.playback_ids ?? [];
+      const playbackId = playbackIds[0]?.id;
+      const clipUrl = playbackId
+        ? `https://stream.mux.com/${playbackId}.m3u8`
+        : null;
+      const clipThumbnailUrl = playbackId
+        ? `https://image.mux.com/${playbackId}/thumbnail.jpg`
+        : null;
+
+      if (clipUrl) {
+        // Find the project that is waiting for this clip
+        const projectSnap = await db
+          .collection("projects")
+          .where("clipPlaybackId", "==", assetId)
+          .limit(1)
+          .get();
+        if (!projectSnap.empty) {
+          await projectSnap.docs[0].ref.update({
+            clipUrl,
+            clipThumbnailUrl,
+            clipStatus: "ready",
+          });
+        }
+      }
+    }
+
+    res.json({ received: true });
+  },
 };
 
 import * as admin from "firebase-admin";
@@ -1632,6 +1846,8 @@ const PUBLIC_ROUTES = [
   "GET /comments",
   "GET /streams/live",
   "GET /streams/:id",
+  "POST /projects/:projectId/view",
+  "POST /mux-webhook",
 ];
 
 function isPublicRoute(method: string, path: string): boolean {
