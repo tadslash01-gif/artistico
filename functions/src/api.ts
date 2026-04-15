@@ -6,7 +6,7 @@ import { auditLog } from "./middleware/auditLog";
 import { createCheckoutSession } from "./stripe/checkout";
 import { createStripeConnectLink, getStripeDashboardLink } from "./stripe/connect";
 import { stripeSecretKey, getStripe } from "./stripe/client";
-import { muxTokenId, muxTokenSecret } from "./streaming/mux";
+import { muxTokenId, muxTokenSecret, muxWebhookSecret } from "./streaming/mux";
 import { getStreamProvider } from "./streaming/client";
 import { db, auth, storage } from "./admin";
 import {
@@ -1748,7 +1748,7 @@ const routes: Record<string, RouteHandler> = {
     // Verify Mux signature to prevent spoofed webhooks.
     // Reject all requests if the secret is not configured — never allow unsigned payloads.
     const muxSignatureHeader = req.headers["mux-signature"];
-    const webhookSecret = process.env.MUX_WEBHOOK_SECRET;
+    const webhookSecret = muxWebhookSecret.value();
     if (!webhookSecret) {
       console.error("[mux-webhook] MUX_WEBHOOK_SECRET is not configured — rejecting request");
       res.status(401).json({ error: "Webhook not configured" });
@@ -1903,7 +1903,7 @@ function isPublicRoute(method: string, path: string): boolean {
   return false;
 }
 
-export const api = onRequest({ cors: false, secrets: [stripeSecretKey, muxTokenId, muxTokenSecret], invoker: "public" }, (req, res) => {
+export const api = onRequest({ cors: false, secrets: [stripeSecretKey, muxTokenId, muxTokenSecret, muxWebhookSecret], invoker: "public" }, (req, res) => {
   corsHandler(req, res, async () => {
     try {
       // Strip /api prefix if present

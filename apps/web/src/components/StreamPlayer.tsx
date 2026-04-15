@@ -22,6 +22,7 @@ export default function StreamPlayer({ playbackId, className }: StreamPlayerProp
         streamType="live"
         autoPlay
         muted={false}
+        envKey={process.env.NEXT_PUBLIC_MUX_DATA_ENV_KEY}
         style={{ width: "100%", aspectRatio: "16/9" }}
       />
     </div>

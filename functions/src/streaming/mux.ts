@@ -4,6 +4,7 @@ import type { IStreamProvider, CreateStreamResult } from "./provider";
 
 export const muxTokenId = defineSecret("MUX_TOKEN_ID");
 export const muxTokenSecret = defineSecret("MUX_TOKEN_SECRET");
+export const muxWebhookSecret = defineSecret("MUX_WEBHOOK_SECRET");
 
 let _mux: Mux | null = null;
 
