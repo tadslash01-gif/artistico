@@ -225,8 +225,9 @@ service cloud.firestore {
       // Only creators can start a stream (status set server-side)
       allow create: if isCreator()
                     && request.resource.data.creatorId == request.auth.uid;
-      // Allow update only to owner (viewer count is updated server-side)
-      allow update: if isOwner(resource.data.creatorId);
+      // Stream doc updates are performed exclusively via admin SDK (Cloud Functions).
+      // Client-side updates are blocked to prevent manipulation of status/playbackId/streamKey.
+      allow update: if false;
       allow delete: if false;
 
       // Subcollection: live chat messages

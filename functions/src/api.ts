@@ -1358,9 +1358,14 @@ const routes: Record<string, RouteHandler> = {
       res.status(400).json({ error: `Dispute window has closed (${windowDays} days after purchase)` });
       return;
     }
+    const rawReason = req.body.reason;
+    if (rawReason !== undefined && rawReason !== null && String(rawReason).length > 500) {
+      res.status(400).json({ error: "Dispute reason must be 500 characters or fewer" });
+      return;
+    }
     await db.collection("orders").doc(orderId).update({
       status: "disputed",
-      disputeReason: req.body.reason ? stripHtml(String(req.body.reason)) : null,
+      disputeReason: rawReason ? stripHtml(String(rawReason).slice(0, 500)) : null,
       disputeOpenedAt: admin.firestore.FieldValue.serverTimestamp(),
       disputeDeadline: admin.firestore.Timestamp.fromDate(deadline),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1436,7 +1441,19 @@ const routes: Record<string, RouteHandler> = {
       ingestUrl,
       providerStreamId,
     });
-    await batch.commit();
+    try {
+      await batch.commit();
+    } catch (err) {
+      // Firestore write failed — disable the Mux stream to prevent a resource leak
+      console.error("[streams] Firestore batch.commit failed, disabling provider stream:", err);
+      try {
+        await provider.disableStream(providerStreamId);
+      } catch (disableErr) {
+        console.error("[streams] Failed to disable provider stream after write failure:", disableErr);
+      }
+      res.status(500).json({ error: "Failed to persist stream. Please try again." });
+      return;
+    }
 
     auditLog({ action: "stream.start", uid: creatorId, targetResource: streamId, ip: req.ip, userAgent: req.headers["user-agent"] });
     res.status(201).json({ streamId, playbackId, streamKey, ingestUrl });
@@ -1728,32 +1745,40 @@ const routes: Record<string, RouteHandler> = {
   // ─── Mux Webhook (clip completion) ────────────────────
 
   "POST /mux-webhook": async (req, res) => {
-    // Verify Mux signature to prevent spoofed webhooks
+    // Verify Mux signature to prevent spoofed webhooks.
+    // Reject all requests if the secret is not configured — never allow unsigned payloads.
     const muxSignatureHeader = req.headers["mux-signature"];
     const webhookSecret = process.env.MUX_WEBHOOK_SECRET;
-    if (webhookSecret && muxSignatureHeader) {
-      const sigStr = Array.isArray(muxSignatureHeader)
-        ? muxSignatureHeader[0]
-        : muxSignatureHeader;
-      // Mux uses: mux-signature: t=<timestamp>,v1=<hmac-sha256>
-      const parts = sigStr.split(",");
-      const tPart = parts.find((p) => p.startsWith("t="));
-      const vPart = parts.find((p) => p.startsWith("v1="));
-      if (!tPart || !vPart) {
-        res.status(401).json({ error: "Invalid signature format" });
-        return;
-      }
-      const timestamp = tPart.slice(2);
-      const receivedSig = vPart.slice(3);
-      const payload = `${timestamp}.${req.rawBody?.toString("utf8") ?? ""}`;
-      const expected = crypto
-        .createHmac("sha256", webhookSecret)
-        .update(payload)
-        .digest("hex");
-      if (receivedSig !== expected) {
-        res.status(401).json({ error: "Signature mismatch" });
-        return;
-      }
+    if (!webhookSecret) {
+      console.error("[mux-webhook] MUX_WEBHOOK_SECRET is not configured — rejecting request");
+      res.status(401).json({ error: "Webhook not configured" });
+      return;
+    }
+    if (!muxSignatureHeader) {
+      res.status(401).json({ error: "Missing Mux signature" });
+      return;
+    }
+    const sigStr = Array.isArray(muxSignatureHeader)
+      ? muxSignatureHeader[0]
+      : muxSignatureHeader;
+    // Mux uses: mux-signature: t=<timestamp>,v1=<hmac-sha256>
+    const parts = sigStr.split(",");
+    const tPart = parts.find((p: string) => p.startsWith("t="));
+    const vPart = parts.find((p: string) => p.startsWith("v1="));
+    if (!tPart || !vPart) {
+      res.status(401).json({ error: "Invalid signature format" });
+      return;
+    }
+    const timestamp = tPart.slice(2);
+    const receivedSig = vPart.slice(3);
+    const payload = `${timestamp}.${req.rawBody?.toString("utf8") ?? ""}`;
+    const expected = crypto
+      .createHmac("sha256", webhookSecret)
+      .update(payload)
+      .digest("hex");
+    if (receivedSig !== expected) {
+      res.status(401).json({ error: "Signature mismatch" });
+      return;
     }
 
     const event = req.body;
