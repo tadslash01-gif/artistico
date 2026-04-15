@@ -113,6 +113,7 @@ function ReplyList({ parentId, currentUserId, onDelete }: ReplyListProps) {
           </div>
           {currentUserId === reply.userId && (
             <button
+              type="button"
               onClick={() => onDelete(reply.commentId)}
               className="self-start text-xs text-muted-foreground hover:text-red-500 transition-colors"
               aria-label="Delete reply"
@@ -159,7 +160,13 @@ function CommentInput({
   };
 
   return (
-    <div className="space-y-1">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSubmit();
+      }}
+      className="space-y-1"
+    >
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
@@ -178,7 +185,7 @@ function CommentInput({
       {error && <p className="text-xs text-red-500">{error}</p>}
       <div className="flex items-center gap-2">
         <button
-          onClick={handleSubmit}
+          type="submit"
           disabled={submitting || !content.trim()}
           className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
         >
@@ -186,6 +193,7 @@ function CommentInput({
         </button>
         {onCancel && (
           <button
+            type="button"
             onClick={onCancel}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
@@ -196,7 +204,7 @@ function CommentInput({
           {content.length}/1000
         </span>
       </div>
-    </div>
+    </form>
   );
 }
 
@@ -344,6 +352,7 @@ export default function CommentSection({
                     <div className="mt-1 flex items-center gap-3">
                       {user && (
                         <button
+                          type="button"
                           onClick={() =>
                             setReplyingTo(
                               replyingTo === comment.commentId
@@ -358,6 +367,7 @@ export default function CommentSection({
                       )}
                       {user?.uid === comment.userId && (
                         <button
+                          type="button"
                           onClick={() => deleteComment(comment.commentId)}
                           disabled={deleting === comment.commentId}
                           className="text-xs text-muted-foreground hover:text-red-500 disabled:opacity-50 transition-colors"

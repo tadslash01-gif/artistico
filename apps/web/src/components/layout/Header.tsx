@@ -94,6 +94,7 @@ function NotificationBell({ userId }: { userId: string }) {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="Notifications"
         className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors"
@@ -127,6 +128,7 @@ function NotificationBell({ userId }: { userId: string }) {
             <span className="text-sm font-semibold text-foreground">Notifications</span>
             {unreadCount > 0 && (
               <button
+                type="button"
                 onClick={markAllRead}
                 className="text-xs text-primary hover:text-primary/80 transition-colors"
               >
@@ -254,6 +256,7 @@ export function Header() {
                 {userData?.displayName || "Account"}
               </Link>
               <button
+                type="button"
                 onClick={signOut}
                 className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
               >

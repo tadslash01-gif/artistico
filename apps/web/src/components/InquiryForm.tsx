@@ -116,6 +116,7 @@ export default function InquiryForm({
           Message {creatorName}
         </h3>
         <button
+          type="button"
           onClick={onClose}
           className="text-muted-foreground hover:text-foreground transition-colors"
           aria-label="Close"

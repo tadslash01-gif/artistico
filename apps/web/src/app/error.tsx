@@ -25,6 +25,7 @@ export default function Error({
       </p>
       <div className="mt-8 flex gap-3">
         <button
+          type="button"
           onClick={reset}
           className="rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
         >

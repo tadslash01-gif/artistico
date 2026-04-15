@@ -69,6 +69,7 @@ export default function ShareButton({ projectTitle, projectSlug, projectId }: Sh
 
   return (
     <button
+      type="button"
       onClick={handleShare}
       className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
       aria-label="Share this project"

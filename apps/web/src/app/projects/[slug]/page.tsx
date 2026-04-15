@@ -345,6 +345,7 @@ export default function ProjectDetailPage({
                   {project.images.map((img, i) => (
                     <button
                       key={i}
+                      type="button"
                       onClick={() => setSelectedImage(i)}
                       aria-label={`View image ${i + 1}`}
                       className={`relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
@@ -550,6 +551,7 @@ export default function ProjectDetailPage({
             <div className="mt-6">
               {!reportOpen ? (
                 <button
+                  type="button"
                   onClick={() => setReportOpen(true)}
                   className="text-xs text-muted-foreground underline hover:text-foreground"
                 >
@@ -580,6 +582,7 @@ export default function ProjectDetailPage({
                   />
                   <div className="mt-2 flex gap-2">
                     <button
+                      type="button"
                       disabled={!reportReason || reportSubmitting}
                       onClick={async () => {
                         setReportSubmitting(true);
@@ -608,6 +611,7 @@ export default function ProjectDetailPage({
                       {reportSubmitting ? "Submitting…" : "Submit Report"}
                     </button>
                     <button
+                      type="button"
                       onClick={() => {
                         setReportOpen(false);
                         setReportReason("");
@@ -758,6 +762,7 @@ export default function ProjectDetailPage({
                 />
               ) : (
                 <button
+                  type="button"
                   onClick={() => setShowInquiry(true)}
                   className="w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
                 >
@@ -830,6 +835,7 @@ export default function ProjectDetailPage({
                     )}
 
                     <button
+                      type="button"
                       onClick={() => handleBuy(product.productId)}
                       disabled={
                         buyingProduct === product.productId ||

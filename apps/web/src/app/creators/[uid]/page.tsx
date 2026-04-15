@@ -214,12 +214,14 @@ export default function CreatorProfilePage({
             {/* Stats bar */}
             <div className="mt-3 flex items-center justify-center gap-4 text-sm text-muted-foreground sm:justify-start">
               <button
+                type="button"
                 onClick={() => handleTabChange("followers")}
                 className="hover:text-foreground transition-colors"
               >
                 <strong className="text-foreground">{creator.followersCount || 0}</strong> followers
               </button>
               <button
+                type="button"
                 onClick={() => handleTabChange("following")}
                 className="hover:text-foreground transition-colors"
               >
@@ -294,6 +296,7 @@ export default function CreatorProfilePage({
               />
             ) : (
               <button
+                type="button"
                 onClick={() => setShowInquiry(true)}
                 className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
               >
@@ -308,6 +311,7 @@ export default function CreatorProfilePage({
           <div className="mt-4">
             {!reportOpen ? (
               <button
+                type="button"
                 onClick={() => setReportOpen(true)}
                 className="text-xs text-muted-foreground underline hover:text-foreground"
               >
@@ -342,6 +346,7 @@ export default function CreatorProfilePage({
                 />
                 <div className="mt-2 flex gap-2">
                   <button
+                    type="button"
                     disabled={!reportReason || reportSubmitting}
                     onClick={async () => {
                       setReportSubmitting(true);
@@ -370,6 +375,7 @@ export default function CreatorProfilePage({
                     {reportSubmitting ? "Submitting…" : "Submit Report"}
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       setReportOpen(false);
                       setReportReason("");
@@ -392,6 +398,7 @@ export default function CreatorProfilePage({
           {(["projects", "followers", "following"] as ProfileTab[]).map((tab) => (
             <button
               key={tab}
+              type="button"
               onClick={() => handleTabChange(tab)}
               className={`pb-3 text-sm font-medium transition-colors capitalize border-b-2 ${
                 activeTab === tab

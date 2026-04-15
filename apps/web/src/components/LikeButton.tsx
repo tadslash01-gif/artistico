@@ -52,6 +52,7 @@ export default function LikeButton({
 
   return (
     <button
+      type="button"
       onClick={handleToggle}
       disabled={loading}
       aria-label={liked ? "Unlike this project" : "Like this project"}
