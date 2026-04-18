@@ -13,6 +13,7 @@ export default function VideoPlayer({ src, poster, className = "" }: VideoPlayer
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
 
   // Lazy-load: attach src only when the element scrolls into view
   useEffect(() => {
@@ -41,7 +42,10 @@ export default function VideoPlayer({ src, poster, className = "" }: VideoPlayer
         <div className="text-center">
           <span className="text-3xl">⚠️</span>
           <p className="mt-2 text-sm text-muted-foreground">
-            Video could not be loaded.
+            Video could not be loaded.<br />
+            <span className="break-all text-xs">
+              {errorDetails ? errorDetails : "Unknown error."}
+            </span>
           </p>
         </div>
       </div>
@@ -59,7 +63,33 @@ export default function VideoPlayer({ src, poster, className = "" }: VideoPlayer
           preload="metadata"
           playsInline
           className="w-full"
-          onError={() => setHasError(true)}
+          onError={e => {
+            setHasError(true);
+            // Try to extract error details
+            const target = e.target as HTMLVideoElement;
+            let msg = "";
+            if (target && target.error) {
+              switch (target.error.code) {
+                case target.error.MEDIA_ERR_ABORTED:
+                  msg = "Video playback aborted.";
+                  break;
+                case target.error.MEDIA_ERR_NETWORK:
+                  msg = "Network error: Could not load video.";
+                  break;
+                case target.error.MEDIA_ERR_DECODE:
+                  msg = "Decoding error: Video file is corrupt or unsupported.";
+                  break;
+                case target.error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                  msg = `Source not supported: ${src}`;
+                  break;
+                default:
+                  msg = `Unknown error code: ${target.error.code}`;
+              }
+            } else {
+              msg = "Unknown video error.";
+            }
+            setErrorDetails(msg);
+          }}
         />
       ) : (
         // Placeholder shown before intersection fires (preserves layout)

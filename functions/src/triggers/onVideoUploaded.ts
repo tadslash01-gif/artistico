@@ -119,13 +119,20 @@ export const onVideoUploaded = onObjectFinalized(
       let duration = 0;
       try {
         duration = await processVideo(tmpVideo, tmpThumb);
-      } catch {
+      } catch (err) {
+        console.error("[onVideoUploaded] FFmpeg failed to process video:", err);
         // If ffmpeg fails, continue without thumbnail
       }
 
       // ── Build video public URL ────────────────────────
       const videoFile = bucketRef.file(objectPath);
-      await videoFile.makePublic();
+      try {
+        await videoFile.makePublic();
+        console.log(`[onVideoUploaded] Video made public: https://storage.googleapis.com/${bucket}/${objectPath}`);
+      } catch (err) {
+        console.error("[onVideoUploaded] Failed to make video public:", err);
+        throw err;
+      }
       const videoUrl = `https://storage.googleapis.com/${bucket}/${objectPath}`;
 
       // ── Upload thumbnail if generated ─────────────────
@@ -145,7 +152,12 @@ export const onVideoUploaded = onObjectFinalized(
         });
 
         const thumbFile = bucketRef.file(thumbStoragePath);
-        await thumbFile.makePublic();
+        try {
+          await thumbFile.makePublic();
+          console.log(`[onVideoUploaded] Thumbnail made public: https://storage.googleapis.com/${bucket}/${thumbStoragePath}`);
+        } catch (err) {
+          console.error("[onVideoUploaded] Failed to make thumbnail public:", err);
+        }
         thumbnailUrl = `https://storage.googleapis.com/${bucket}/${thumbStoragePath}`;
       }
 
@@ -156,39 +168,47 @@ export const onVideoUploaded = onObjectFinalized(
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
 
-      if (parsed.type === "project") {
-        if (duration > 0) videoFields.videoDuration = duration;
-        await db
-          .collection("projects")
-          .doc(parsed.projectId)
-          .update(videoFields);
+      try {
+        if (parsed.type === "project") {
+          if (duration > 0) videoFields.videoDuration = duration;
+          await db
+            .collection("projects")
+            .doc(parsed.projectId)
+            .update(videoFields);
+          console.log(`[onVideoUploaded] Updated Firestore for project ${parsed.projectId}`);
 
-        // ── Fan-out project_video_added notifications ──
-        const projectSnap = await db
-          .collection("projects")
-          .doc(parsed.projectId)
-          .get();
-        const projectData = projectSnap.data();
-        if (projectData) {
-          await sendVideoNotifications(
-            parsed.projectId,
-            projectData.creatorId,
-            projectData.title || "Untitled Project",
-            projectData.slug || parsed.projectId,
-            projectData.creatorName || "A creator",
-            projectData.creatorAvatar || null
-          );
+          // ── Fan-out project_video_added notifications ──
+          const projectSnap = await db
+            .collection("projects")
+            .doc(parsed.projectId)
+            .get();
+          const projectData = projectSnap.data();
+          if (projectData) {
+            await sendVideoNotifications(
+              parsed.projectId,
+              projectData.creatorId,
+              projectData.title || "Untitled Project",
+              projectData.slug || parsed.projectId,
+              projectData.creatorName || "A creator",
+              projectData.creatorAvatar || null
+            );
+          }
+        } else if (parsed.type === "linked-product") {
+          await db
+            .collection("products")
+            .doc(parsed.productId)
+            .update(videoFields);
+          console.log(`[onVideoUploaded] Updated Firestore for linked product ${parsed.productId}`);
+        } else {
+          await db
+            .collection("products")
+            .doc(parsed.productId)
+            .update(videoFields);
+          console.log(`[onVideoUploaded] Updated Firestore for standalone product ${parsed.productId}`);
         }
-      } else if (parsed.type === "linked-product") {
-        await db
-          .collection("products")
-          .doc(parsed.productId)
-          .update(videoFields);
-      } else {
-        await db
-          .collection("products")
-          .doc(parsed.productId)
-          .update(videoFields);
+      } catch (err) {
+        console.error("[onVideoUploaded] Failed to update Firestore:", err);
+        throw err;
       }
     } finally {
       // ── Cleanup temp files ────────────────────────────
