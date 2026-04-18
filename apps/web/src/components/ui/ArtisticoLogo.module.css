@@ -1,0 +1,27 @@
+.logoLink {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  margin: 0;
+}
+
+.logoSpan {
+  display: inline-block;
+  aspect-ratio: 5.5 / 1;
+  vertical-align: middle;
+  width: auto;
+  /* max-height is set inline for responsive size */
+}
+
+.animated {
+  filter: drop-shadow(0 2px 8px rgba(120, 80, 180, 0.12));
+  transition: filter 0.2s, box-shadow 0.2s;
+}
+.animated:hover {
+  filter: drop-shadow(0 4px 16px rgba(120, 80, 180, 0.25)) brightness(1.08);
+}
+@media (prefers-reduced-motion: reduce) {
+  .animated animate {
+    display: none !important;
+  }
+}

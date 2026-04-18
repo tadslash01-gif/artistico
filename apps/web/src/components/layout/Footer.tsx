@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArtisticoLogo } from "@/components/branding/ArtisticoLogo";
+import { ArtisticoLogo } from "@/components/ui/ArtisticoLogo";
 
 async function getPlatformStats(): Promise<{ totalCreators: number; totalProjects: number } | null> {
   try {
@@ -35,7 +35,7 @@ export async function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-2">
-            <ArtisticoLogo size="sm" />
+            <ArtisticoLogo size="small" animated className="!pl-0 !ml-0" />
             <span className="text-sm text-muted-foreground">
               — Marketplace for Hobby Creators
             </span>

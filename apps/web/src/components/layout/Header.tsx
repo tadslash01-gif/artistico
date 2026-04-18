@@ -7,7 +7,7 @@ import { collection, onSnapshot, query, where, orderBy, limit } from "firebase/f
 import { firestore } from "@/lib/firebase";
 import { useAuth } from "@/hooks/useAuth";
 import { usePresence } from "@/hooks/usePresence";
-import { ArtisticoLogo } from "@/components/branding/ArtisticoLogo";
+import { ArtisticoLogo } from "@/components/ui/ArtisticoLogo";
 import { apiFetch } from "@/lib/api";
 
 interface InAppNotification {
@@ -201,14 +201,7 @@ export function Header() {
     <header className="border-b border-border bg-white">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo + Tagline */}
-        <Link href="/" className="flex items-center gap-2.5">
-          <ArtisticoLogo size="sm" />
-          <span
-            className="hidden md:block text-[18px] font-bold leading-none text-foreground"
-          >
-            For the Love of Creating
-          </span>
-        </Link>
+        <ArtisticoLogo size="small" animated className="!pl-0 !ml-0" />
 
         {/* Navigation */}
         <nav className="hidden items-center gap-6 md:flex">
