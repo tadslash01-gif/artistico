@@ -36,7 +36,7 @@ export async function generateMetadata({
         title,
         description,
         type: "article",
-        url: `https://artistico.app/projects/${slug}`,
+        url: `https://artistico.love/projects/${slug}`,
         ...(image ? { images: [{ url: image, width: 1200, height: 630, alt: project.title }] } : {}),
       },
       twitter: {

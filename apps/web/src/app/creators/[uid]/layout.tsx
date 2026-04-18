@@ -35,7 +35,7 @@ export async function generateMetadata({
         title,
         description,
         type: "profile",
-        url: `https://artistico.app/creators/${uid}`,
+        url: `https://artistico.love/creators/${uid}`,
         ...(image ? { images: [{ url: image, width: 400, height: 400, alt: name }] } : {}),
       },
       twitter: {
