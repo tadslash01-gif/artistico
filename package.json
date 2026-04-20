@@ -11,7 +11,7 @@
     "typecheck": "pnpm -r typecheck",
     "dev:functions": "pnpm --filter @artistico/functions build:watch",
     "emulators": "firebase emulators:start --import=./firebase/.emulator-data --export-on-exit",
-    "sync:functions": "node -e \"const{cpSync}=require('fs');cpSync('functions/src','functions-deploy/src',{recursive:true});cpSync('shared/src','functions-deploy/shared/src',{recursive:true});console.log('Synced functions/ → functions-deploy/')\"",
+    "sync:functions": "node -e \"const{cpSync,readFileSync,writeFileSync}=require('fs');const{rmSync,mkdirSync}=require('fs');try{rmSync('functions-deploy',{recursive:true})}catch{};mkdirSync('functions-deploy',{recursive:true});cpSync('functions/dist','functions-deploy',{recursive:true});cpSync('functions/node_modules','functions-deploy/node_modules',{recursive:true});const pkg=JSON.parse(readFileSync('functions/package.json','utf8'));pkg.main='index.js';pkg.dependencies['@artistico/shared']='file:./shared';writeFileSync('functions-deploy/package.json',JSON.stringify(pkg,null,2));cpSync('shared','functions-deploy/shared',{recursive:true});console.log('Synced functions/dist → functions-deploy/')\"",
     "predeploy:staging": "pnpm sync:functions && pnpm --filter @artistico/shared build && pnpm --filter functions-deploy run build",
     "predeploy:production": "pnpm sync:functions && pnpm --filter @artistico/shared build && pnpm --filter functions-deploy run build",
     "deploy:staging": "pnpm predeploy:staging && firebase deploy --project staging",
