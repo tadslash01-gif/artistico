@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { getAllArticles } from "@/lib/blog-data";
 
 const BASE_URL = "https://artistico.love";
 const PROJECT_ID = "artistico-78f75";
@@ -42,11 +43,15 @@ async function queryFirestore(
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const articles = getAllArticles();
+
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: BASE_URL, lastModified: new Date(), changeFrequency: "daily", priority: 1.0 },
     { url: `${BASE_URL}/browse`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
-    { url: `${BASE_URL}/login`, changeFrequency: "monthly", priority: 0.3 },
-    { url: `${BASE_URL}/signup`, changeFrequency: "monthly", priority: 0.3 },
+    { url: `${BASE_URL}/creators`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
+    { url: `${BASE_URL}/about`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${BASE_URL}/contact`, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${BASE_URL}/blog`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
     { url: `${BASE_URL}/become-creator`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${BASE_URL}/legal`, changeFrequency: "monthly", priority: 0.2 },
     { url: `${BASE_URL}/legal/terms`, changeFrequency: "monthly", priority: 0.2 },
@@ -55,6 +60,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/legal/seller`, changeFrequency: "monthly", priority: 0.2 },
     { url: `${BASE_URL}/legal/payments`, changeFrequency: "monthly", priority: 0.2 },
   ];
+
+  // Blog article routes
+  const blogRoutes: MetadataRoute.Sitemap = articles.map((article) => ({
+    url: `${BASE_URL}/blog/${article.slug}`,
+    lastModified: new Date(article.publishedAt),
+    changeFrequency: "monthly" as const,
+    priority: 0.7,
+  }));
 
   try {
     const [projectDocs, creatorDocs] = await Promise.all([
@@ -80,8 +93,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     }));
 
-    return [...staticRoutes, ...projectRoutes, ...creatorRoutes];
+    return [...staticRoutes, ...blogRoutes, ...projectRoutes, ...creatorRoutes];
   } catch {
-    return staticRoutes;
+    return [...staticRoutes, ...blogRoutes];
   }
 }

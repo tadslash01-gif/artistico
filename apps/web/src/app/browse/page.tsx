@@ -1,540 +1,151 @@
-"use client";
-
-import { useSearchParams, useRouter } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { useState, useEffect, useCallback, useRef, Suspense } from "react";
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  getDocs,
-  startAfter,
-  DocumentSnapshot,
-} from "firebase/firestore";
-import { firestore } from "@/lib/firebase";
-import ProjectCard from "@/components/ProjectCard";
-import BrowseScrollRow from "@/components/BrowseScrollRow";
+import { getPublishedProjects } from "@/lib/firebase-server";
+import { BrowseClient } from "./BrowseClient";
+import { Suspense } from "react";
+
+export const metadata: Metadata = {
+  title: "Browse Projects & Products — Handmade Crafts, Digital Art & More",
+  description:
+    "Discover handmade crafts, digital art, photography, woodworking, and more from hobby creators. Browse projects and products on Artistico — a low-fee marketplace for makers.",
+  openGraph: {
+    title: "Browse — Artistico",
+    description: "Discover handmade crafts, digital art, and more from hobby creators.",
+    url: "https://artistico.love/browse",
+  },
+};
 
 // Sorted A–Z
 const CATEGORIES = [
-  { name: "All", slug: "" },
-  { name: "3D Printing", slug: "3d-printing" },
-  { name: "Ceramics", slug: "ceramics" },
-  { name: "Crafts", slug: "crafts" },
-  { name: "Digital Art", slug: "digital-art" },
-  { name: "Electronics", slug: "electronics" },
-  { name: "Fiber Arts", slug: "fiber-arts" },
-  { name: "Jewelry", slug: "jewelry" },
-  { name: "Other", slug: "other" },
-  { name: "Painting", slug: "painting" },
-  { name: "Paper Crafts", slug: "paper-crafts" },
-  { name: "Photography", slug: "photography" },
-  { name: "Textiles", slug: "textiles" },
-  { name: "Woodworking", slug: "woodworking" },
+  { name: "3D Printing", slug: "3d-printing", emoji: "🖨️" },
+  { name: "Ceramics", slug: "ceramics", emoji: "🏺" },
+  { name: "Crafts", slug: "crafts", emoji: "✂️" },
+  { name: "Digital Art", slug: "digital-art", emoji: "🎨" },
+  { name: "Electronics", slug: "electronics", emoji: "⚡" },
+  { name: "Fiber Arts", slug: "fiber-arts", emoji: "🧵" },
+  { name: "Jewelry", slug: "jewelry", emoji: "💍" },
+  { name: "Other", slug: "other", emoji: "🎁" },
+  { name: "Painting", slug: "painting", emoji: "🖌️" },
+  { name: "Paper Crafts", slug: "paper-crafts", emoji: "📄" },
+  { name: "Photography", slug: "photography", emoji: "📷" },
+  { name: "Textiles", slug: "textiles", emoji: "🧶" },
+  { name: "Woodworking", slug: "woodworking", emoji: "🪵" },
 ];
 
-const SORT_OPTIONS = [
-  { label: "Newest", value: "newest" },
-  { label: "Trending", value: "trending" },
-  { label: "Top Rated", value: "rating" },
-];
-
-const DIFFICULTY_OPTIONS = [
-  { label: "Beginner", value: "beginner" },
-  { label: "Intermediate", value: "intermediate" },
-  { label: "Advanced", value: "advanced" },
-];
-
-const PAGE_SIZE = 20;
-
-interface ProjectData {
-  projectId: string;
-  title: string;
-  slug: string;
-  description: string;
-  images: string[];
-  category: string;
-  difficulty?: "beginner" | "intermediate" | "advanced" | null;
-  tags: string[];
-  productCount: number;
-  averageRating: number;
-  reviewCount: number;
-  savesCount?: number;
-  minPrice?: number | null;
-  creatorName?: string;
-  creatorAvatar?: string | null;
-  creatorId: string;
-  trendingScore?: number;
+function formatCategory(slug: string): string {
+  return slug
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
-interface ProductData {
-  productId: string;
-  projectId: string | null;
-  creatorId: string;
-  title: string;
-  description: string;
-  type: "physical" | "digital" | "template" | "commission";
-  price: number;
-  images: string[];
-  category: string | null;
-  status: string;
-  createdAt: { seconds: number; nanoseconds: number } | null;
-}
-
-const PRODUCT_TYPE_LABELS: Record<string, string> = {
-  physical: "Physical",
-  digital: "Digital",
-  template: "Template",
-  commission: "Commission",
-};
-
-export default function BrowsePage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="h-8 w-48 animate-pulse rounded bg-muted" />
-          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-72 animate-pulse rounded-2xl bg-[#e8e2da]" />
-            ))}
-          </div>
-        </div>
-      }
-    >
-      <BrowseContent />
-    </Suspense>
-  );
-}
-
-function BrowseContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-
-  const typeFilter = searchParams.get("type") || "project"; // "project" | "product"
-  const categoryFilter = searchParams.get("category") || "";
-  const sortFilter = searchParams.get("sort") || "newest";
-  const difficultyFilter = searchParams.get("difficulty") || "";
-  const searchQuery = searchParams.get("q") || "";
-
-  const [projects, setProjects] = useState<ProjectData[]>([]);
-  const [products, setProducts] = useState<ProductData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [fetchError, setFetchError] = useState(false);
-  const [searchInput, setSearchInput] = useState(searchQuery);
-  const lastDocRef = useRef<DocumentSnapshot | null>(null);
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  const buildUrl = useCallback(
-    (overrides: Record<string, string>) => {
-      const params = new URLSearchParams();
-      const values = {
-        type: typeFilter,
-        category: categoryFilter,
-        sort: sortFilter,
-        difficulty: difficultyFilter,
-        q: searchQuery,
-        ...overrides,
-      };
-      for (const [k, v] of Object.entries(values)) {
-        if (!v) continue;
-        if (k === "sort" && v === "newest") continue;
-        if (k === "type" && v === "project") continue; // default — omit from URL
-        params.set(k, v);
-      }
-      const qs = params.toString();
-      return `/browse${qs ? `?${qs}` : ""}`;
-    },
-    [typeFilter, categoryFilter, sortFilter, difficultyFilter, searchQuery]
-  );
-
-  const fetchProjects = useCallback(
-    async (append = false) => {
-      if (!firestore) return;
-      if (append) setLoadingMore(true);
-      else {
-        setLoading(true);
-        setFetchError(false);
-      }
-
-      try {
-        let q = query(
-          collection(firestore!, "projects"),
-          where("status", "==", "published")
-        );
-
-        if (categoryFilter) {
-          q = query(q, where("category", "==", categoryFilter));
-        }
-        if (difficultyFilter) {
-          q = query(q, where("difficulty", "==", difficultyFilter));
-        }
-
-        if (sortFilter === "trending") {
-          q = query(q, orderBy("trendingScore", "desc"));
-        } else if (sortFilter === "rating") {
-          q = query(q, orderBy("averageRating", "desc"));
-        } else {
-          q = query(q, orderBy("createdAt", "desc"));
-        }
-
-        q = query(q, limit(PAGE_SIZE));
-
-        if (append && lastDocRef.current) {
-          q = query(q, startAfter(lastDocRef.current));
-        }
-
-        const snapshot = await getDocs(q);
-        const newProjects = snapshot.docs.map((doc) => doc.data() as ProjectData);
-
-        const filtered = searchQuery
-          ? newProjects.filter((p) =>
-              p.title.toLowerCase().includes(searchQuery.toLowerCase())
-            )
-          : newProjects;
-
-        lastDocRef.current = snapshot.docs[snapshot.docs.length - 1] || null;
-        setHasMore(snapshot.docs.length === PAGE_SIZE);
-
-        if (append) {
-          setProjects((prev) => [...prev, ...filtered]);
-        } else {
-          setProjects(filtered);
-        }
-      } catch (err) {
-        console.error("Failed to fetch projects:", err);
-        if (!append) setFetchError(true);
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
-      }
-    },
-    [categoryFilter, sortFilter, difficultyFilter, searchQuery]
-  );
-
-  const fetchProducts = useCallback(
-    async (append = false) => {
-      if (!firestore) return;
-      if (append) setLoadingMore(true);
-      else {
-        setLoading(true);
-        setFetchError(false);
-      }
-
-      try {
-        let q = query(
-          collection(firestore!, "products"),
-          where("status", "==", "active")
-        );
-
-        if (categoryFilter) {
-          q = query(q, where("category", "==", categoryFilter));
-        }
-
-        q = query(q, orderBy("createdAt", "desc"), limit(PAGE_SIZE));
-
-        if (append && lastDocRef.current) {
-          q = query(q, startAfter(lastDocRef.current));
-        }
-
-        const snapshot = await getDocs(q);
-        const newProducts = snapshot.docs.map((doc) => doc.data() as ProductData);
-
-        const filtered = searchQuery
-          ? newProducts.filter((p) =>
-              p.title.toLowerCase().includes(searchQuery.toLowerCase())
-            )
-          : newProducts;
-
-        lastDocRef.current = snapshot.docs[snapshot.docs.length - 1] || null;
-        setHasMore(snapshot.docs.length === PAGE_SIZE);
-
-        if (append) {
-          setProducts((prev) => [...prev, ...filtered]);
-        } else {
-          setProducts(filtered);
-        }
-      } catch (err) {
-        console.error("Failed to fetch products:", err);
-        if (!append) setFetchError(true);
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
-      }
-    },
-    [categoryFilter, searchQuery]
-  );
-
-  useEffect(() => {
-    lastDocRef.current = null;
-    if (typeFilter === "product") {
-      fetchProducts(false);
-    } else {
-      fetchProjects(false);
-    }
-  }, [typeFilter, fetchProjects, fetchProducts]);
-
-  // Debounced search
-  const handleSearchChange = (value: string) => {
-    setSearchInput(value);
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    searchTimeoutRef.current = setTimeout(() => {
-      router.push(buildUrl({ q: value }));
-    }, 600);
-  };
-
-  const isProductMode = typeFilter === "product";
+export default async function BrowsePage() {
+  // Fetch initial projects server-side for SSR
+  const projects = await getPublishedProjects(12);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="text-3xl font-bold text-foreground">
-        Browse {isProductMode ? "Products" : "Projects"}
-      </h1>
+      {/* SSR-rendered intro section for crawlers */}
+      <section className="mb-8">
+        <h1 className="text-3xl font-bold text-foreground">
+          Browse Projects &amp; Products
+        </h1>
+        <p className="mt-3 text-lg text-muted-foreground max-w-2xl">
+          Discover handmade crafts, digital art, photography, jewelry,
+          woodworking, and more from hobby creators around the world. Every
+          project on Artistico is made by an independent maker — not a factory.
+        </p>
+      </section>
 
-      {/* Type toggle */}
-      <div className="mt-6 flex items-center gap-2">
-        <Link
-          href={buildUrl({ type: "project" })}
-          className={`rounded-full px-5 py-2 text-sm font-semibold transition-all ${
-            !isProductMode
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "bg-white border border-border text-muted-foreground hover:bg-muted"
-          }`}
-        >
-          Projects
-        </Link>
-        <Link
-          href={buildUrl({ type: "product" })}
-          className={`rounded-full px-5 py-2 text-sm font-semibold transition-all ${
-            isProductMode
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "bg-white border border-border text-muted-foreground hover:bg-muted"
-          }`}
-        >
-          Products
-        </Link>
-      </div>
-
-      {/* Curated scroll rows (projects only) */}
-      {!isProductMode && (
-        <div className="mt-8">
-          <BrowseScrollRow title="Trending This Week" emoji="🔥" variant="trending" />
-          <BrowseScrollRow title="New This Week" emoji="✨" variant="new" />
-        </div>
-      )}
-
-      {/* Search */}
-      <div className={isProductMode ? "mt-8" : "mt-6"}>
-        <input
-          id="browse-search"
-          name="q"
-          type="search"
-          placeholder={isProductMode ? "Search products..." : "Search projects..."}
-          value={searchInput}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="w-full max-w-md rounded-xl border border-[#d6cfc7] bg-[#f7f5f2] px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/15 transition-all"
-        />
-      </div>
-
-      {/* Filters Row */}
-      <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        {/* Category Pills */}
+      {/* SSR category links for internal linking */}
+      <section className="mb-8">
+        <h2 className="sr-only">Categories</h2>
         <div className="flex flex-wrap gap-2">
           {CATEGORIES.map((cat) => (
             <Link
               key={cat.slug}
-              href={buildUrl({ category: cat.slug })}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
-                categoryFilter === cat.slug
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-white/80 border border-border text-muted-foreground hover:bg-accent/30 hover:border-primary/40"
-              }`}
+              href={`/browse?category=${cat.slug}`}
+              className="rounded-full bg-white/80 border border-border px-4 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent/30 hover:border-primary/40 transition-all"
             >
-              {cat.name}
+              {cat.emoji} {cat.name}
             </Link>
           ))}
         </div>
+      </section>
 
-        {/* Sort + Difficulty (projects only) */}
-        {!isProductMode && (
-          <div className="flex items-center gap-3">
-            <select
-              aria-label="Filter by difficulty"
-              value={difficultyFilter}
-              onChange={(e) => router.push(buildUrl({ difficulty: e.target.value }))}
-              className="rounded-lg border border-border bg-white px-3 py-1.5 text-sm text-foreground"
-            >
-              <option value="">All Levels</option>
-              {DIFFICULTY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              aria-label="Sort projects"
-              value={sortFilter}
-              onChange={(e) => router.push(buildUrl({ sort: e.target.value }))}
-              className="rounded-lg border border-border bg-white px-3 py-1.5 text-sm text-foreground"
-            >
-              {SORT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
-
-      {/* Results Grid */}
-      <div className="mt-8">
-        {fetchError ? (
-          <div className="py-20 text-center">
-            <span className="text-5xl" aria-hidden="true">⚠️</span>
-            <p className="mt-4 text-lg font-medium text-foreground">
-              Something went wrong loading {isProductMode ? "products" : "projects"}.
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Check your connection and try again.
-            </p>
-            <button
-              onClick={() => isProductMode ? fetchProducts(false) : fetchProjects(false)}
-              className="mt-4 rounded-xl border border-border bg-white px-6 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-            >
-              Retry
-            </button>
-          </div>
-        ) : loading ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-72 animate-pulse rounded-2xl bg-[#e8e2da]"
-              />
+      {/* SSR project listing for crawlers */}
+      {projects.length > 0 && (
+        <section className="mb-10">
+          <h2 className="text-xl font-bold text-foreground mb-4">
+            Latest Projects
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {projects.map((project) => (
+              <Link
+                key={project.projectId}
+                href={`/projects/${project.slug}`}
+                className="group rounded-2xl border border-border bg-white p-4 shadow-sm hover:shadow-md transition-all"
+              >
+                <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                  {project.title}
+                </h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {formatCategory(project.category)}
+                  {project.tags?.length > 0 && ` · ${project.tags.slice(0, 3).join(", ")}`}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground line-clamp-3">
+                  {project.description?.slice(0, 200)}
+                  {(project.description?.length ?? 0) > 200 ? "…" : ""}
+                </p>
+              </Link>
             ))}
           </div>
-        ) : isProductMode ? (
-          products.length === 0 ? (
-            <div className="py-20 text-center">
-              <span className="text-5xl" aria-hidden="true">🛍️</span>
-              <p className="mt-4 text-lg font-medium text-foreground">
-                No products found{categoryFilter ? ` in "${categoryFilter}"` : ""}
-                {searchQuery ? ` matching "${searchQuery}"` : ""}.
-              </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Be the first to{" "}
-                <Link href="/become-creator" className="text-primary font-medium hover:text-primary/80">
-                  list something for sale
-                </Link>
-                !
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {products.map((product) => (
-                  <ProductCard key={product.productId} product={product} />
-                ))}
-              </div>
-              {hasMore && (
-                <div className="mt-8 text-center">
-                  <button
-                    onClick={() => fetchProducts(true)}
-                    disabled={loadingMore}
-                    className="rounded-xl border border-border bg-white px-6 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-                  >
-                    {loadingMore ? "Loading..." : "Load More Products"}
-                  </button>
-                </div>
-              )}
-            </>
-          )
-        ) : projects.length === 0 ? (
-          <div className="py-20 text-center">
-            <span className="text-5xl" aria-hidden="true">🔍</span>
-            <p className="mt-4 text-lg font-medium text-foreground">
-              No projects found{categoryFilter ? ` in "${categoryFilter}"` : ""}{searchQuery ? ` matching "${searchQuery}"` : ""}.
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Be the first to{" "}
-              <Link href="/become-creator" className="text-primary font-medium hover:text-primary/80">
-                share something you made
-              </Link>
-              {" "}— your hobby could inspire someone!
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {projects.map((project) => (
-                <ProjectCard key={project.projectId} project={project} />
-              ))}
-            </div>
+        </section>
+      )}
 
-            {hasMore && (
-              <div className="mt-8 text-center">
-                <button
-                  onClick={() => fetchProjects(true)}
-                  disabled={loadingMore}
-                  className="rounded-xl border border-border bg-white px-6 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-                >
-                  {loadingMore ? "Loading..." : "Load More Projects"}
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ProductCard({ product }: { product: ProductData }) {
-  const href = product.projectId
-    ? `/projects/${product.projectId}`
-    : "/browse?type=product";
-
-  return (
-    <Link
-      href={href}
-      className="group overflow-hidden rounded-2xl border border-border bg-white shadow-sm hover:shadow-md transition-all duration-200"
-    >
-      <div className="aspect-square overflow-hidden bg-muted">
-        {product.images?.[0] ? (
-          // Using a regular img to avoid requiring next.config domain allowlist for arbitrary URLs
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={product.images[0]}
-            alt={product.title}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-4xl text-muted-foreground">
-            🛍️
-          </div>
-        )}
-      </div>
-      <div className="p-4">
-        <p className="line-clamp-2 text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-          {product.title}
+      {/* SSR useful information section */}
+      <section className="mb-10 rounded-2xl border border-border bg-accent/20 p-8">
+        <h2 className="text-xl font-bold text-foreground">
+          Why Browse on Artistico?
+        </h2>
+        <p className="mt-3 text-muted-foreground leading-relaxed">
+          Artistico is different from mass-market platforms. Every project here
+          is shared by a real person — a hobbyist, maker, or independent artist
+          who creates because they love it. When you buy on Artistico, your money
+          goes directly to the creator with only a 5% marketplace fee.
         </p>
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <span className="text-sm font-bold text-primary">
-            {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
-              product.price / 100
-            )}
-          </span>
-          <span className="rounded-full bg-accent/50 px-2 py-0.5 text-xs text-muted-foreground">
-            {PRODUCT_TYPE_LABELS[product.type] ?? product.type}
-          </span>
+        <p className="mt-3 text-muted-foreground leading-relaxed">
+          Browse categories including handmade jewelry, ceramics, crochet and
+          fiber arts, digital art and illustrations, landscape photography,
+          3D printing projects, woodworking, and much more. Each project
+          includes the creator&apos;s story, materials used, and detailed
+          descriptions.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-3 text-sm">
+          <Link href="/creators" className="text-primary font-medium hover:text-primary/80">
+            Meet Our Creators →
+          </Link>
+          <Link href="/blog" className="text-primary font-medium hover:text-primary/80">
+            Read Our Blog →
+          </Link>
+          <Link href="/become-creator" className="text-primary font-medium hover:text-primary/80">
+            Start Selling →
+          </Link>
         </div>
-      </div>
-    </Link>
+      </section>
+
+      {/* Client-side interactive browse with filters, search, pagination */}
+      <Suspense
+        fallback={
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-72 animate-pulse rounded-2xl bg-[#e8e2da]" />
+            ))}
+          </div>
+        }
+      >
+        <BrowseClient />
+      </Suspense>
+    </div>
   );
 }

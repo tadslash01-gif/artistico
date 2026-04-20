@@ -1,202 +1,133 @@
-"use client";
-
-import { useState, useEffect } from "react";
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  getDocs,
-  startAfter,
-  DocumentSnapshot,
-} from "firebase/firestore";
-import { firestore } from "@/lib/firebase";
-import Image from "next/image";
+import type { Metadata } from "next";
 import Link from "next/link";
+import { getCreators } from "@/lib/firebase-server";
+import { CreatorsClient } from "./CreatorsClient";
+import { Suspense } from "react";
 
-interface CreatorSummary {
-  uid: string;
-  displayName: string;
-  photoURL: string | null;
-  isCreator: boolean;
-  followersCount: number;
-  totalSales: number;
-  isVerified: boolean;
-  creatorProfile: {
-    bio?: string;
-    location?: string;
-    specialties?: string[];
-  } | null;
-}
+export const metadata: Metadata = {
+  title: "Discover Creators — Artists, Makers & Crafters",
+  description:
+    "Meet the hobby creators behind Artistico. Browse profiles, discover new artists, and find makers specializing in digital art, ceramics, woodworking, jewelry, and more.",
+  openGraph: {
+    title: "Creators — Artistico",
+    description: "Meet the hobby creators behind Artistico.",
+    url: "https://artistico.love/creators",
+  },
+};
 
-const PAGE_SIZE = 24;
-
-export default function CreatorsPage() {
-  const [creators, setCreators] = useState<CreatorSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
-
-  async function fetchCreators(append = false) {
-    if (!firestore) return;
-    if (append) setLoadingMore(true);
-    else setLoading(true);
-
-    try {
-      let q = query(
-        collection(firestore, "users"),
-        where("isCreator", "==", true),
-        orderBy("followersCount", "desc"),
-        limit(PAGE_SIZE)
-      );
-
-      if (append && lastDoc) {
-        q = query(q, startAfter(lastDoc));
-      }
-
-      const snapshot = await getDocs(q);
-      const newCreators = snapshot.docs.map((d) => d.data() as CreatorSummary);
-
-      setLastDoc(snapshot.docs[snapshot.docs.length - 1] ?? null);
-      setHasMore(snapshot.docs.length === PAGE_SIZE);
-
-      if (append) {
-        setCreators((prev) => [...prev, ...newCreators]);
-      } else {
-        setCreators(newCreators);
-      }
-    } catch (err) {
-      console.error("Failed to fetch creators:", err);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchCreators(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+export default async function CreatorsPage() {
+  const creators = await getCreators(12);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold text-foreground sm:text-4xl">Creators</h1>
-        <p className="mt-3 text-muted-foreground">
-          Discover the makers and artists behind Artistico
+      {/* SSR header and description */}
+      <section className="mb-8 text-center">
+        <h1 className="text-3xl font-bold text-foreground sm:text-4xl">
+          Discover Creators
+        </h1>
+        <p className="mt-3 mx-auto max-w-2xl text-lg text-muted-foreground">
+          Meet the makers and artists behind Artistico. Every creator on our
+          platform is a real person sharing work they&apos;re passionate about —
+          from hand-thrown ceramics to custom character illustrations.
         </p>
-      </div>
+      </section>
 
-      {loading ? (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="animate-pulse rounded-2xl bg-muted h-52" />
-          ))}
-        </div>
-      ) : creators.length === 0 ? (
-        <div className="py-20 text-center">
-          <span className="text-5xl" aria-hidden="true">🎨</span>
-          <p className="mt-4 text-lg font-medium text-foreground">No creators yet.</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Be the first!{" "}
-            <Link href="/become-creator" className="text-primary hover:text-primary/80 font-medium">
-              Start selling today →
-            </Link>
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {/* SSR creator listing for crawlers */}
+      {creators.length > 0 && (
+        <section className="mb-10">
+          <h2 className="text-xl font-bold text-foreground mb-4">
+            Featured Creators
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {creators.map((creator) => (
-              <CreatorCard key={creator.uid} creator={creator} />
+              <Link
+                key={creator.uid}
+                href={`/creators/${creator.uid}`}
+                className="group rounded-2xl border border-border bg-white p-5 shadow-sm hover:shadow-md transition-all"
+              >
+                <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                  {creator.displayName}
+                </h3>
+                {creator.creatorProfile?.location && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    📍 {creator.creatorProfile.location}
+                  </p>
+                )}
+                {creator.creatorProfile?.bio && (
+                  <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
+                    {creator.creatorProfile.bio}
+                  </p>
+                )}
+                {creator.creatorProfile?.specialties && creator.creatorProfile.specialties.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    {creator.creatorProfile.specialties.slice(0, 3).map((s: string) => (
+                      <span
+                        key={s}
+                        className="rounded-full border border-border bg-accent/30 px-2 py-0.5 text-xs text-foreground"
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-3 text-xs text-muted-foreground">
+                  <strong className="text-foreground">{creator.followersCount || 0}</strong> followers
+                </div>
+              </Link>
             ))}
           </div>
-
-          {hasMore && (
-            <div className="mt-10 text-center">
-              <button
-                onClick={() => fetchCreators(true)}
-                disabled={loadingMore}
-                className="rounded-xl border border-border bg-white px-8 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-              >
-                {loadingMore ? "Loading..." : "Load More Creators"}
-              </button>
-            </div>
-          )}
-        </>
+        </section>
       )}
-    </div>
-  );
-}
 
-function CreatorCard({ creator }: { creator: CreatorSummary }) {
-  const specialties = creator.creatorProfile?.specialties ?? [];
-  const location = creator.creatorProfile?.location;
+      {/* SEO content */}
+      <section className="mb-10 rounded-2xl border border-border bg-accent/20 p-8">
+        <h2 className="text-xl font-bold text-foreground">
+          Join Our Creator Community
+        </h2>
+        <p className="mt-3 text-muted-foreground leading-relaxed">
+          Artistico is built for hobby creators who want a fair platform to
+          showcase and sell their work. Whether you specialize in digital art,
+          woodworking, ceramics, jewelry making, photography, or any other
+          creative medium — you belong here. We charge only a 5% marketplace
+          fee with no listing fees or monthly subscriptions.
+        </p>
+        <p className="mt-3 text-muted-foreground leading-relaxed">
+          Each creator gets a full profile page to share their bio, location,
+          specialties, and portfolio of projects. Buyers can follow their
+          favorite creators, leave reviews, and commission custom work directly
+          through the platform.
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link href="/become-creator" className="btn-gradient">
+            Start Selling →
+          </Link>
+          <Link
+            href="/browse"
+            className="rounded-xl border border-border bg-white px-6 py-3 text-sm font-semibold text-foreground hover:bg-muted/60 transition-colors"
+          >
+            Browse Projects
+          </Link>
+          <Link
+            href="/blog"
+            className="rounded-xl border border-border bg-white px-6 py-3 text-sm font-semibold text-foreground hover:bg-muted/60 transition-colors"
+          >
+            Read Our Blog
+          </Link>
+        </div>
+      </section>
 
-  return (
-    <Link
-      href={`/creators/${creator.uid}`}
-      className="group flex flex-col rounded-2xl border border-border bg-white p-6 shadow-sm hover:shadow-md transition-all duration-200"
-    >
-      <div className="flex items-center gap-4">
-        {creator.photoURL ? (
-          <Image
-            src={creator.photoURL}
-            alt={creator.displayName}
-            width={52}
-            height={52}
-            className="h-13 w-13 rounded-full object-cover"
-          />
-        ) : (
-          <div className="flex h-13 w-13 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary">
-            {(creator.displayName || "?")[0].toUpperCase()}
+      {/* Client-side interactive creators list */}
+      <Suspense
+        fallback={
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="animate-pulse rounded-2xl bg-muted h-52" />
+            ))}
           </div>
-        )}
-        <div className="min-w-0">
-          <p className="truncate font-semibold text-foreground group-hover:text-primary transition-colors">
-            {creator.displayName}
-          </p>
-          {location && (
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">📍 {location}</p>
-          )}
-        </div>
-      </div>
-
-      {specialties.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {specialties.slice(0, 3).map((s) => (
-            <span
-              key={s}
-              className="rounded-full border border-border bg-accent/30 px-2.5 py-0.5 text-xs text-foreground"
-            >
-              {s}
-            </span>
-          ))}
-          {specialties.length > 3 && (
-            <span className="rounded-full border border-border bg-accent/30 px-2.5 py-0.5 text-xs text-muted-foreground">
-              +{specialties.length - 3} more
-            </span>
-          )}
-        </div>
-      )}
-
-      <div className="mt-auto pt-4 flex items-center gap-4 text-xs text-muted-foreground">
-        <span>
-          <strong className="text-foreground">{creator.followersCount || 0}</strong> followers
-        </span>
-        {(creator.totalSales || 0) > 0 && (
-          <span>
-            <strong className="text-foreground">{creator.totalSales}</strong> sales
-          </span>
-        )}
-        {creator.isVerified && (
-          <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-primary font-medium">
-            Verified
-          </span>
-        )}
-      </div>
-    </Link>
+        }
+      >
+        <CreatorsClient />
+      </Suspense>
+    </div>
   );
 }

@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/dashboard/", "/login", "/signup"],
+        disallow: ["/dashboard/", "/login", "/signup", "/forgot-password", "/orders/"],
       },
     ],
     sitemap: "https://artistico.love/sitemap.xml",
