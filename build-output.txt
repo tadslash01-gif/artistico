@@ -1,0 +1,56 @@
+Γû▓ Next.js 16.2.1 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 8.2s
+  Running TypeScript ...
+  Finished TypeScript in 6.8s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/31) ...
+  Generating static pages using 7 workers (7/31) 
+  Generating static pages using 7 workers (15/31) 
+  Generating static pages using 7 workers (23/31) 
+Γ£ô Generating static pages using 7 workers (31/31) in 728ms
+  Finalizing page optimization ...
+
+Route (app)                                               Revalidate  Expire
+Γöî Γùï /                                                             1h      1y
+Γö£ Γùï /_not-found                                                   1h      1y
+Γö£ Γùï /become-creator                                               1h      1y
+Γö£ Γùï /browse                                                       1h      1y
+Γö£ Γùï /creators                                                     1h      1y
+Γö£ ╞Æ /creators/[uid]
+Γö£ Γùï /dashboard                                                    1h      1y
+Γö£ Γùï /dashboard/following                                          1h      1y
+Γö£ Γùï /dashboard/messages                                           1h      1y
+Γö£ Γùï /dashboard/orders                                             1h      1y
+Γö£ Γùï /dashboard/products                                           1h      1y
+Γö£ Γùï /dashboard/products/new                                       1h      1y
+Γö£ Γùï /dashboard/profile                                            1h      1y
+Γö£ Γùï /dashboard/projects                                           1h      1y
+Γö£ ╞Æ /dashboard/projects/[projectId]
+Γö£ ╞Æ /dashboard/projects/[projectId]/products/[productId]
+Γö£ ╞Æ /dashboard/projects/[projectId]/products/new
+Γö£ Γùï /dashboard/projects/new                                       1h      1y
+Γö£ Γùï /dashboard/saved                                              1h      1y
+Γö£ Γùï /dashboard/settings                                           1h      1y
+Γö£ Γùï /dashboard/stream                                             1h      1y
+Γö£ Γùï /forgot-password                                              1h      1y
+Γö£ Γùï /legal                                                        1h      1y
+Γö£ Γùï /legal/payments                                               1h      1y
+Γö£ Γùï /legal/privacy                                                1h      1y
+Γö£ Γùï /legal/refund                                                 1h      1y
+Γö£ Γùï /legal/seller                                                 1h      1y
+Γö£ Γùï /legal/terms                                                  1h      1y
+Γö£ Γùï /login                                                        1h      1y
+Γö£ ╞Æ /orders/success
+Γö£ ╞Æ /projects/[slug]
+Γö£ Γùï /robots.txt
+Γö£ Γùï /signup                                                       1h      1y
+Γö£ Γùï /sitemap.xml                                                  1h      1y
+Γöö ╞Æ /stream/[streamId]
+
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+

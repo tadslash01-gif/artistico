@@ -259,5 +259,17 @@ service cloud.firestore {
         allow create, update, delete: if false;
       }
     }
+
+    // ─── Internal Collections (admin SDK only) ────────────────────
+    // Explicit deny-all rules — these are written exclusively by
+    // Cloud Functions via the admin SDK, which bypasses security rules.
+
+    match /_rateLimits/{docId} {
+      allow read, write: if false;
+    }
+
+    match /_auditLogs/{logId} {
+      allow read, write: if false;
+    }
   }
 }

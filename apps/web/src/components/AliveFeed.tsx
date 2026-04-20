@@ -35,7 +35,7 @@ function eventText(e: ActivityEvent): string {
   return "was active";
 }
 
-export default function AliveFeeed() {
+export default function AliveFeed() {
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [loading, setLoading] = useState(true);
 

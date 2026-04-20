@@ -178,3 +178,113 @@ export function buildCreatorSaleEmail(opts: CreatorEmailOptions): {
     html: emailWrapper(content),
   };
 }
+
+// ─── New Follower Notification ───────────────────────────────────────────────
+
+interface FollowEmailOptions {
+  creatorName: string;
+  followerName: string;
+  followerProfileUrl: string;
+}
+
+export function buildFollowNotificationEmail(opts: FollowEmailOptions): {
+  subject: string;
+  html: string;
+} {
+  const content = `
+    <p style="margin:0 0 4px;font-size:24px;">👋</p>
+    <h1 style="margin:8px 0 4px;font-size:20px;font-weight:700;color:#111827;">You have a new follower!</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
+      Hi ${opts.creatorName}, <strong>${opts.followerName}</strong> just followed you on Artistico.
+    </p>
+    ${primaryButton("View Their Profile", opts.followerProfileUrl)}
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:28px 0;" />
+    <p style="margin:0;font-size:13px;color:#6b7280;">
+      Keep creating! Your audience is growing.
+    </p>
+  `;
+
+  return {
+    subject: `${opts.followerName} just followed you on Artistico`,
+    html: emailWrapper(content),
+  };
+}
+
+// ─── Bookmark / Save Notification ────────────────────────────────────────────
+
+interface BookmarkEmailOptions {
+  creatorName: string;
+  saverName: string;
+  projectTitle: string;
+  projectUrl: string;
+}
+
+export function buildBookmarkNotificationEmail(opts: BookmarkEmailOptions): {
+  subject: string;
+  html: string;
+} {
+  const content = `
+    <p style="margin:0 0 4px;font-size:24px;">🔖</p>
+    <h1 style="margin:8px 0 4px;font-size:20px;font-weight:700;color:#111827;">Someone saved your project!</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
+      Hi ${opts.creatorName}, <strong>${opts.saverName}</strong> just saved your project
+      <strong>${opts.projectTitle}</strong>.
+    </p>
+    ${primaryButton("View Project", opts.projectUrl)}
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:28px 0;" />
+    <p style="margin:0;font-size:13px;color:#6b7280;">
+      Saves show your work resonates. Keep it up!
+    </p>
+  `;
+
+  return {
+    subject: `${opts.saverName} saved your project "${opts.projectTitle}"`,
+    html: emailWrapper(content),
+  };
+}
+
+// ─── New Review Notification ─────────────────────────────────────────────────
+
+interface ReviewEmailOptions {
+  creatorName: string;
+  reviewerName: string;
+  productTitle: string;
+  rating: number;
+  reviewTitle: string;
+  projectUrl: string;
+}
+
+export function buildNewReviewEmail(opts: ReviewEmailOptions): {
+  subject: string;
+  html: string;
+} {
+  const stars = "★".repeat(opts.rating) + "☆".repeat(5 - opts.rating);
+
+  const content = `
+    <p style="margin:0 0 4px;font-size:24px;">⭐</p>
+    <h1 style="margin:8px 0 4px;font-size:20px;font-weight:700;color:#111827;">New review on your product!</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
+      Hi ${opts.creatorName}, <strong>${opts.reviewerName}</strong> left a review on
+      <strong>${opts.productTitle}</strong>.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+      <tbody>
+        ${detailRow("Rating", `<span style="color:#f59e0b;">${stars}</span>`)}
+        ${detailRow("Title", opts.reviewTitle)}
+      </tbody>
+    </table>
+
+    ${primaryButton("View Review", opts.projectUrl)}
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:28px 0;" />
+    <p style="margin:0;font-size:13px;color:#6b7280;">
+      Reviews help other buyers discover your work.
+    </p>
+  `;
+
+  return {
+    subject: `New ${opts.rating}-star review on "${opts.productTitle}"`,
+    html: emailWrapper(content),
+  };
+}
+

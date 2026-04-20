@@ -1,11 +1,11 @@
-name: Build & Validate
+name: Build & Deploy
 
 on:
   push:
     branches: [main]
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,5 +26,29 @@ jobs:
       - name: Build functions
         run: pnpm --filter @artistico/functions build
 
-      # App Hosting auto-deploys on push to main via Cloud Build.
-      # No manual Firebase Hosting deploy step needed.
+      - name: Sync functions for deployment
+        run: pnpm sync:functions
+
+      - name: Deploy Cloud Functions
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only functions --project production
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Deploy Firestore rules & indexes
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only firestore --project production
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Deploy Storage rules
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only storage --project production
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      # App Hosting auto-deploys the Next.js frontend on push to main via Cloud Build.
+      # No manual Firebase Hosting deploy step needed for the web app.

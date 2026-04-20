@@ -20,7 +20,7 @@ export default function MomentumBar() {
       .then((data: PlatformStats) => setStats(data))
       .catch(() => {
         // Fallback values if fetch fails
-        setStats({ totalCreators: 0, totalProjects: 0, newCreatorsThisWeek: 3, projectsToday: 1 });
+        setStats({ totalCreators: 0, totalProjects: 0, newCreatorsThisWeek: 0, projectsToday: 0 });
       });
   }, []);
 

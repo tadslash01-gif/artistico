@@ -16,3 +16,4 @@ export { onVideoUploaded } from "./triggers/onVideoUploaded";
 export { onStreamStarted } from "./triggers/onStreamStarted";
 export { onCommentCreated } from "./triggers/onCommentCreated";
 export { onStreamEnded } from "./triggers/onStreamEnded";
+export { cleanupRateLimits } from "./triggers/cleanupRateLimits";

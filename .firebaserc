@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "artistico-78f75"
+    "default": "artistico-78f75",
+    "staging": "artistico-78f75",
+    "production": "artistico-78f75"
   }
 }

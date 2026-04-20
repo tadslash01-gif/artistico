@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { ArtisticoLogo } from "@/components/ui/ArtisticoLogo";
+
 import TrendingProjects from "@/components/TrendingProjects";
 import NewCreators from "@/components/NewCreators";
 import FeaturedCreators from "@/components/FeaturedCreators";
 import RecentlyAdded from "@/components/RecentlyAdded";
 import RecentlyAddedProducts from "@/components/RecentlyAddedProducts";
 import MomentumBar from "@/components/MomentumBar";
-import AliveFeeed from "@/components/AliveFeeed";
+import AliveFeed from "@/components/AliveFeed";
 import LiveNowRow from "@/components/LiveNowRow";
 
 // Sorted A–Z
@@ -37,7 +38,7 @@ export default function Home() {
           <div className="absolute right-1/4 top-1/3 h-[300px] w-[300px] rounded-full bg-accent/30 blur-[80px]" />
         </div>
         <div className="relative mx-auto flex flex-col items-center">
-          <ArtisticoLogo size="large" animated className="mb-2" />
+          <ArtisticoLogo size="large" animated showTagline={false} className="mb-2" />
           <h1 className="mt-8 max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
             Your art deserves an audience.
             <br />
@@ -136,7 +137,7 @@ export default function Home() {
             </span>
             <h2 className="text-lg font-bold text-foreground">Live Activity</h2>
           </div>
-          <AliveFeeed />
+          <AliveFeed />
         </div>
       </section>
 

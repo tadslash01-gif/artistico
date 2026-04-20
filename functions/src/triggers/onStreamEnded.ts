@@ -70,25 +70,28 @@ export const onStreamEnded = onDocumentUpdated(
 
       // 2. Fetch the asset to determine duration
       const asset = await mux.video.assets.retrieve(assetId);
-      const duration: number = (asset as any).duration ?? 0;
+      const duration: number = asset.duration ?? 0;
 
       // Clip: last 60 seconds (or full asset if shorter)
       const clipDuration = 60;
       const startTime = Math.max(0, duration - clipDuration);
       const endTime = duration > 0 ? duration : clipDuration;
 
-      // 3. Create clip via Mux Clips API
-      const clip = await (mux.video as any).assets.createClip({
-        input: {
-          url: `mux://assets/${assetId}`,
-          start_time: startTime,
-          end_time: endTime,
-        },
-        playback_policy: ["public"],
+      // 3. Create clip via Mux assets.create() with mux:// input URL
+      // SDK v12+ uses assets.create with input array — there is no createClip method
+      const clip = await mux.video.assets.create({
+        inputs: [
+          {
+            url: `mux://assets/${assetId}`,
+            start_time: startTime,
+            end_time: endTime,
+          },
+        ],
+        playback_policies: ["public"],
       });
 
-      const clipAssetId: string = clip.id ?? clip.asset_id;
-      const clipPlaybackIds: Array<{ id: string }> = clip.playback_ids ?? [];
+      const clipAssetId: string = clip.id;
+      const clipPlaybackIds = clip.playback_ids ?? [];
       const clipPlaybackId: string = clipPlaybackIds[0]?.id ?? clipAssetId;
 
       // 4. Write clip metadata to the project (status: processing)

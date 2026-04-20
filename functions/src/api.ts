@@ -8,6 +8,12 @@ import { createStripeConnectLink, getStripeDashboardLink } from "./stripe/connec
 import { stripeSecretKey, getStripe } from "./stripe/client";
 import { muxTokenId, muxTokenSecret, muxWebhookSecret } from "./streaming/mux";
 import { getStreamProvider } from "./streaming/client";
+import { getResend, resendApiKey, FROM_ADDRESS } from "./email/client";
+import {
+  buildFollowNotificationEmail,
+  buildBookmarkNotificationEmail,
+  buildNewReviewEmail,
+} from "./email/templates";
 import { db, auth, storage } from "./admin";
 import {
   CreateProjectSchema,
@@ -544,6 +550,30 @@ const routes: Record<string, RouteHandler> = {
       return;
     }
 
+    // Send review email to creator (non-blocking)
+    const productDoc = await db.collection("products").doc(parsed.data.productId).get();
+    const creatorId = order.creatorId;
+    if (creatorId) {
+      const [creatorDoc, buyerRecord] = await Promise.all([
+        db.collection("users").doc(creatorId).get(),
+        auth.getUser(req.user!.uid).catch(() => null),
+      ]);
+      const creatorEmail = (await auth.getUser(creatorId).catch(() => null))?.email;
+      const notifPrefs = creatorDoc.data()?.notificationPreferences;
+      if (creatorEmail && notifPrefs?.emailOnNewReview !== false) {
+        const { subject, html } = buildNewReviewEmail({
+          creatorName: creatorDoc.data()?.displayName || "Creator",
+          reviewerName: buyerRecord?.displayName || "A buyer",
+          productTitle: productDoc.data()?.title || "your product",
+          rating: parsed.data.rating,
+          reviewTitle: parsed.data.title,
+          projectUrl: `https://artistico.love/projects/${parsed.data.projectId}`,
+        });
+        getResend().emails.send({ from: FROM_ADDRESS, to: creatorEmail, subject, html })
+          .catch((err) => console.error("Review email failed (non-fatal):", err));
+      }
+    }
+
     res.status(201).json({ reviewId });
   },
 
@@ -748,9 +778,18 @@ const routes: Record<string, RouteHandler> = {
         read: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+      // Send bookmark email if creator opted in
       const recipientPrefs = creatorDoc.data()?.notificationPreferences;
-      if (recipientPrefs?.emailOnNewOrder) {
-        console.info(`[notification] email:bookmark recipient=${creatorId} actor=${req.user!.uid}`);
+      const creatorEmail = (await auth.getUser(creatorId).catch(() => null))?.email;
+      if (recipientPrefs?.emailOnNewOrder && creatorEmail) {
+        const { subject, html } = buildBookmarkNotificationEmail({
+          creatorName: creatorDoc.data()?.displayName || "Creator",
+          saverName: actorDoc.data()?.displayName || "Someone",
+          projectTitle: projectDoc.data()?.title || "Untitled Project",
+          projectUrl: `https://artistico.love/projects/${projectDoc.data()?.slug || projectId}`,
+        });
+        getResend().emails.send({ from: FROM_ADDRESS, to: creatorEmail, subject, html })
+          .catch((err) => console.error("Bookmark email failed (non-fatal):", err));
       }
     }
 
@@ -790,12 +829,10 @@ const routes: Record<string, RouteHandler> = {
 
     const saves = snapshot.docs.map((doc) => doc.data());
 
-    // Fetch projects for the saved items
+    // Fetch projects for the saved items — batch read instead of N+1 queries
     if (saves.length > 0) {
-      const projectIds = saves.map((s) => s.projectId);
-      const projectDocs = await Promise.all(
-        projectIds.map((id) => db.collection("projects").doc(id).get())
-      );
+      const projectRefs = saves.map((s) => db.collection("projects").doc(s.projectId));
+      const projectDocs = await db.getAll(...projectRefs);
       const projects = projectDocs.filter((d) => d.exists).map((d) => d.data());
       res.json({ saves, projects });
     } else {
@@ -864,10 +901,17 @@ const routes: Record<string, RouteHandler> = {
     });
     await batch.commit();
 
-    // Trigger email if recipient opted in (integrate email provider when configured)
+    // Send follow email if recipient opted in
     const recipientPrefs = recipientDoc.data()?.notificationPreferences;
-    if (recipientPrefs?.emailOnNewFollower) {
-      console.info(`[notification] email:follow recipient=${followingId} actor=${req.user!.uid}`);
+    const recipientEmail = (await auth.getUser(followingId).catch(() => null))?.email;
+    if (recipientPrefs?.emailOnNewFollower && recipientEmail) {
+      const { subject, html } = buildFollowNotificationEmail({
+        creatorName: recipientDoc.data()?.displayName || "Creator",
+        followerName: actorDoc.data()?.displayName || "Someone",
+        followerProfileUrl: `https://artistico.love/creators/${req.user!.uid}`,
+      });
+      getResend().emails.send({ from: FROM_ADDRESS, to: recipientEmail, subject, html })
+        .catch((err) => console.error("Follow email failed (non-fatal):", err));
     }
 
     res.status(201).json({ followId: followRef.id });
@@ -928,9 +972,8 @@ const routes: Record<string, RouteHandler> = {
       return;
     }
 
-    const userDocs = await Promise.all(
-      followerIds.map((id) => db.collection("users").doc(id).get())
-    );
+    const userRefs = followerIds.map((id) => db.collection("users").doc(id));
+    const userDocs = await db.getAll(...userRefs);
     const followers = userDocs
       .filter((d) => d.exists)
       .map((d) => {
@@ -961,9 +1004,8 @@ const routes: Record<string, RouteHandler> = {
       return;
     }
 
-    const userDocs = await Promise.all(
-      followingIds.map((id) => db.collection("users").doc(id).get())
-    );
+    const userRefs = followingIds.map((id) => db.collection("users").doc(id));
+    const userDocs = await db.getAll(...userRefs);
     const following = userDocs
       .filter((d) => d.exists)
       .map((d) => {
@@ -1007,8 +1049,8 @@ const routes: Record<string, RouteHandler> = {
     const data = {
       totalCreators: totalCreatorsSnap.data().count,
       totalProjects: totalProjectsSnap.data().count,
-      newCreatorsThisWeek: Math.max(weekCreatorsSnap.data().count, 3),
-      projectsToday: Math.max(todayProjectsSnap.data().count, 1),
+      newCreatorsThisWeek: weekCreatorsSnap.data().count,
+      projectsToday: todayProjectsSnap.data().count,
     };
     statsCache = { data, timestamp: Date.now() };
     res.json(data);
@@ -1168,6 +1210,61 @@ const routes: Record<string, RouteHandler> = {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
     res.status(201).json({ reportId: reportRef.id });
+  },
+
+  // ─── Admin: Report Management ──────────────────────────
+  "GET /admin/reports": async (req, res) => {
+    // Verify admin access
+    const userDoc = await db.collection("users").doc(req.user!.uid).get();
+    if (!userDoc.exists || !userDoc.data()?.isAdmin) {
+      res.status(403).json({ error: "Admin access required" });
+      return;
+    }
+
+    const statusFilter = req.query.status || "pending";
+    const snapshot = await db
+      .collection("reports")
+      .where("status", "==", statusFilter)
+      .orderBy("createdAt", "desc")
+      .limit(50)
+      .get();
+
+    res.json({ reports: snapshot.docs.map((d) => d.data()) });
+  },
+
+  "PUT /admin/reports/:reportId": async (req, res) => {
+    // Verify admin access
+    const userDoc = await db.collection("users").doc(req.user!.uid).get();
+    if (!userDoc.exists || !userDoc.data()?.isAdmin) {
+      res.status(403).json({ error: "Admin access required" });
+      return;
+    }
+
+    const { reportId } = req.params!;
+    const { status, resolution } = req.body;
+    const validStatuses = ["pending", "reviewed", "resolved"];
+    if (!validStatuses.includes(status)) {
+      res.status(400).json({ error: `Status must be one of: ${validStatuses.join(", ")}` });
+      return;
+    }
+
+    const reportRef = db.collection("reports").doc(reportId);
+    const reportDoc = await reportRef.get();
+    if (!reportDoc.exists) {
+      res.status(404).json({ error: "Report not found" });
+      return;
+    }
+
+    await reportRef.update({
+      status,
+      resolution: resolution ? stripHtml(resolution) : null,
+      reviewedBy: req.user!.uid,
+      reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    auditLog({ action: "dispute.opened", uid: req.user!.uid, targetResource: reportId, metadata: { status } });
+    res.json({ success: true });
   },
 
   // ─── Comments ─────────────────────────────────────────
@@ -1903,7 +2000,7 @@ function isPublicRoute(method: string, path: string): boolean {
   return false;
 }
 
-export const api = onRequest({ cors: false, secrets: [stripeSecretKey, muxTokenId, muxTokenSecret, muxWebhookSecret], invoker: "public" }, (req, res) => {
+export const api = onRequest({ cors: false, secrets: [stripeSecretKey, muxTokenId, muxTokenSecret, muxWebhookSecret, resendApiKey], invoker: "public" }, (req, res) => {
   corsHandler(req, res, async () => {
     try {
       // Strip /api prefix if present

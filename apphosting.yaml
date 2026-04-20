@@ -44,6 +44,21 @@ env:
     availability:
       - BUILD
       - RUNTIME
+  - variable: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+    value: pk_live_51SNnxlRxEECSAvbFxPhEa7g4i5xW0yJe7aJHOX2gFJwMWQ0lePcrhtUShqKySmdd5syTAR95IUrhh06pGKcebLZG009uagyAkB
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_ADSENSE_PUB_ID
+    value: ca-pub-7631931283737656
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_MUX_DATA_ENV_KEY
+    value: lp07occa0qi2r1oqa68b1sefp
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: MONOREPO_COMMAND
     value: "pnpm --filter @artistico/web build"
     availability:
