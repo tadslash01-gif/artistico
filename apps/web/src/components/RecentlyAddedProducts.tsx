@@ -8,6 +8,8 @@ import {
   orderBy,
   limit,
   getDocs,
+  doc,
+  getDoc,
 } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import Image from "next/image";
@@ -16,6 +18,7 @@ import Link from "next/link";
 interface ProductData {
   productId: string;
   projectId: string | null;
+  projectSlug?: string | null;
   creatorId: string;
   title: string;
   description: string;
@@ -48,15 +51,49 @@ export default function RecentlyAddedProducts() {
   useEffect(() => {
     async function fetchRecentProducts() {
       if (!firestore) return;
+      const db = firestore;
       try {
         const q = query(
-          collection(firestore, "products"),
+          collection(db, "products"),
           where("status", "==", "active"),
           orderBy("createdAt", "desc"),
           limit(8)
         );
         const snapshot = await getDocs(q);
-        setProducts(snapshot.docs.map((d) => d.data() as ProductData));
+        const rawProducts = snapshot.docs.map((d) => d.data() as ProductData);
+
+        const projectIds = Array.from(
+          new Set(
+            rawProducts
+              .map((p) => p.projectId)
+              .filter((id): id is string => Boolean(id))
+          )
+        );
+
+        const slugEntries = await Promise.all(
+          projectIds.map(async (id) => {
+            try {
+              const projectSnap = await getDoc(doc(db, "projects", id));
+              if (!projectSnap.exists()) return null;
+              const project = projectSnap.data() as { slug?: string; status?: string };
+              if (project.status !== "published" || !project.slug) return null;
+              return [id, project.slug] as const;
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        const slugMap = new Map(
+          slugEntries.filter((entry): entry is readonly [string, string] => entry !== null)
+        );
+
+        setProducts(
+          rawProducts.map((product) => ({
+            ...product,
+            projectSlug: product.projectId ? (slugMap.get(product.projectId) ?? null) : null,
+          }))
+        );
       } catch (err) {
         console.error("Failed to fetch recent products:", err);
       } finally {
@@ -85,8 +122,8 @@ export default function RecentlyAddedProducts() {
     <div className="flex gap-5 overflow-x-auto pb-2 snap-x snap-mandatory">
       {products.map((product) => {
         // Products link to their project page or browse?type=product
-        const href = product.projectId
-          ? `/projects/${product.projectId}`
+        const href = product.projectSlug
+          ? `/projects/${product.projectSlug}`
           : `/browse?type=product`;
 
         return (

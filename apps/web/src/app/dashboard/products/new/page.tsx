@@ -55,9 +55,12 @@ export default function NewProductPage() {
   // Fetch user's projects for the optional link
   useEffect(() => {
     if (!user) return;
+    setError("");
     apiFetch<{ projects: ProjectOption[] }>(`/projects?creatorId=${user.uid}`)
       .then((data) => setProjects(data.projects))
-      .catch(() => {});
+      .catch(() => {
+        setError("Could not load your projects. You can still create a standalone product.");
+      });
   }, [user]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -159,7 +162,11 @@ export default function NewProductPage() {
         method: "POST",
         body: JSON.stringify(body),
       });
-      router.push(`/dashboard/products/${result.productId}`);
+      if (projectId) {
+        router.push(`/dashboard/projects/${projectId}/products/${result.productId}`);
+      } else {
+        router.push(`/dashboard/products/${result.productId}`);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to create product");
     } finally {

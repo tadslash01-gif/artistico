@@ -22,12 +22,24 @@ export default function DashboardProductsPage() {
   const { user } = useAuth();
   const [products, setProducts] = useState<ProductData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const getEditHref = (product: ProductData) =>
+    product.projectId
+      ? `/dashboard/projects/${product.projectId}/products/${product.productId}`
+      : `/dashboard/products/${product.productId}`;
 
   useEffect(() => {
     if (!user) return;
     apiFetch<{ products: ProductData[] }>(`/products?creatorId=${user.uid}`)
-      .then((data) => setProducts(data.products))
-      .catch(console.error)
+      .then((data) => {
+        setProducts(data.products);
+        setError("");
+      })
+      .catch((err: unknown) => {
+        console.error(err);
+        setError("Failed to load products. Please refresh and try again.");
+      })
       .finally(() => setLoading(false));
   }, [user]);
 
@@ -58,10 +70,15 @@ export default function DashboardProductsPage() {
         </div>
       ) : (
         <div className="mt-6 space-y-3">
+          {error && (
+            <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
           {products.map((product) => (
             <Link
               key={product.productId}
-              href={`/dashboard/products/${product.productId}`}
+              href={getEditHref(product)}
               className="flex items-center gap-4 rounded-xl border border-border bg-white p-4 hover:shadow-sm transition-all"
             >
               <div className="h-14 w-14 shrink-0 rounded-lg bg-muted overflow-hidden">
