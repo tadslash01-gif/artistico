@@ -1,6 +1,16 @@
 import { z } from "zod";
-import { PROJECT_CATEGORIES, LICENSE_TYPES } from "./types";
-import type { ProjectCategory } from "./types";
+import { PROJECT_CATEGORIES, LICENSE_TYPES, CONTENT_QUALITY_THRESHOLDS } from "./types";
+import type {
+  ProjectCategory,
+  ContentQualityStatus,
+  CreatorQualitySignals,
+  CreatorQualityThresholds,
+  ProductQualitySignals,
+  ProductQualityThresholds,
+  ProjectQualitySignals,
+  ProjectQualityThresholds,
+  QualityAssessment,
+} from "./types";
 
 // ─── Constants ───────────────────────────────────────────
 
@@ -35,6 +45,142 @@ export function formatCurrency(cents: number): string {
     style: "currency",
     currency: "USD",
   }).format(cents / 100);
+}
+
+export function countWords(value: string | null | undefined): number {
+  if (!value) return 0;
+  const normalized = value.trim();
+  if (!normalized) return 0;
+  return normalized.split(/\s+/).filter(Boolean).length;
+}
+
+function getQualityStatus(passed: boolean, hasAnySignal: boolean): ContentQualityStatus {
+  if (passed) return "complete";
+  if (hasAnySignal) return "partial";
+  return "thin";
+}
+
+export function evaluateCreatorProfileQuality(
+  input: {
+    bio?: string | null;
+    specialties?: string[] | null;
+    publishedProjectsCount?: number | null;
+  },
+  thresholds: CreatorQualityThresholds = CONTENT_QUALITY_THRESHOLDS.creator
+): QualityAssessment<CreatorQualitySignals> {
+  const signals: CreatorQualitySignals = {
+    bioWordCount: countWords(input.bio),
+    specialtiesCount: input.specialties?.length ?? 0,
+    publishedProjectsCount: input.publishedProjectsCount ?? 0,
+  };
+
+  const failedChecks: string[] = [];
+  if (signals.bioWordCount < thresholds.minBioWords) {
+    failedChecks.push(`bioWordCount<${thresholds.minBioWords}`);
+  }
+  if (signals.specialtiesCount < thresholds.minSpecialties) {
+    failedChecks.push(`specialtiesCount<${thresholds.minSpecialties}`);
+  }
+  if (signals.publishedProjectsCount < thresholds.minPublishedProjects) {
+    failedChecks.push(`publishedProjectsCount<${thresholds.minPublishedProjects}`);
+  }
+
+  const passed = failedChecks.length === 0;
+  const hasAnySignal =
+    signals.bioWordCount > 0 ||
+    signals.specialtiesCount > 0 ||
+    signals.publishedProjectsCount > 0;
+
+  return {
+    status: getQualityStatus(passed, hasAnySignal),
+    passed,
+    failedChecks,
+    signals,
+  };
+}
+
+export function evaluateProjectQuality(
+  input: {
+    description?: string | null;
+    images?: string[] | null;
+    tags?: string[] | null;
+  },
+  thresholds: ProjectQualityThresholds = CONTENT_QUALITY_THRESHOLDS.project
+): QualityAssessment<ProjectQualitySignals> {
+  const signals: ProjectQualitySignals = {
+    descriptionWordCount: countWords(input.description),
+    imageCount: input.images?.length ?? 0,
+    tagCount: input.tags?.length ?? 0,
+  };
+
+  const failedChecks: string[] = [];
+  if (signals.descriptionWordCount < thresholds.minDescriptionWords) {
+    failedChecks.push(`descriptionWordCount<${thresholds.minDescriptionWords}`);
+  }
+  if (signals.imageCount < thresholds.minImages) {
+    failedChecks.push(`imageCount<${thresholds.minImages}`);
+  }
+  if (signals.tagCount < thresholds.minTags) {
+    failedChecks.push(`tagCount<${thresholds.minTags}`);
+  }
+
+  const passed = failedChecks.length === 0;
+  const hasAnySignal =
+    signals.descriptionWordCount > 0 ||
+    signals.imageCount > 0 ||
+    signals.tagCount > 0;
+
+  return {
+    status: getQualityStatus(passed, hasAnySignal),
+    passed,
+    failedChecks,
+    signals,
+  };
+}
+
+export function evaluateProductQuality(
+  input: {
+    description?: string | null;
+    specsCount?: number | null;
+    useCaseCount?: number | null;
+    faqCount?: number | null;
+  },
+  thresholds: ProductQualityThresholds = CONTENT_QUALITY_THRESHOLDS.product
+): QualityAssessment<ProductQualitySignals> {
+  const signals: ProductQualitySignals = {
+    descriptionWordCount: countWords(input.description),
+    specsCount: input.specsCount ?? 0,
+    useCaseCount: input.useCaseCount ?? 0,
+    faqCount: input.faqCount ?? 0,
+  };
+
+  const failedChecks: string[] = [];
+  if (signals.descriptionWordCount < thresholds.minDescriptionWords) {
+    failedChecks.push(`descriptionWordCount<${thresholds.minDescriptionWords}`);
+  }
+  if (signals.specsCount < thresholds.minSpecs) {
+    failedChecks.push(`specsCount<${thresholds.minSpecs}`);
+  }
+  if (signals.useCaseCount < thresholds.minUseCases) {
+    failedChecks.push(`useCaseCount<${thresholds.minUseCases}`);
+  }
+  if (signals.faqCount < thresholds.minFaqItems) {
+    failedChecks.push(`faqCount<${thresholds.minFaqItems}`);
+  }
+
+  const passed = failedChecks.length === 0;
+  const hasAnySignal =
+    signals.descriptionWordCount > 0 ||
+    signals.specsCount > 0 ||
+    signals.useCaseCount > 0 ||
+    signals.faqCount > 0;
+
+  return {
+    status: getQualityStatus(passed, hasAnySignal),
+    passed,
+    failedChecks,
+    signals,
+  };
 }
 
 // ─── Zod Schemas ─────────────────────────────────────────

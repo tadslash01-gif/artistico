@@ -409,3 +409,92 @@ export interface ChatMessage {
   content: string;
   createdAt: Timestamp;
 }
+
+// ─── Content Quality Gates (AdSense / SEO) ──────────────
+
+export type ContentQualityStatus = "thin" | "partial" | "complete";
+
+export interface CreatorQualityThresholds {
+  minBioWords: number;
+  minSpecialties: number;
+  minPublishedProjects: number;
+}
+
+export interface ProjectQualityThresholds {
+  minDescriptionWords: number;
+  minImages: number;
+  minTags: number;
+}
+
+export interface ProductQualityThresholds {
+  minDescriptionWords: number;
+  minSpecs: number;
+  minUseCases: number;
+  minFaqItems: number;
+}
+
+export interface ContentQualityThresholds {
+  creator: CreatorQualityThresholds;
+  project: ProjectQualityThresholds;
+  product: ProductQualityThresholds;
+}
+
+export const CONTENT_QUALITY_THRESHOLDS: ContentQualityThresholds = {
+  creator: {
+    minBioWords: 120,
+    minSpecialties: 3,
+    minPublishedProjects: 2,
+  },
+  project: {
+    minDescriptionWords: 250,
+    minImages: 3,
+    minTags: 5,
+  },
+  product: {
+    minDescriptionWords: 350,
+    minSpecs: 1,
+    minUseCases: 1,
+    minFaqItems: 1,
+  },
+};
+
+export interface CreatorQualitySignals {
+  bioWordCount: number;
+  specialtiesCount: number;
+  publishedProjectsCount: number;
+}
+
+export interface ProjectQualitySignals {
+  descriptionWordCount: number;
+  imageCount: number;
+  tagCount: number;
+}
+
+export interface ProductQualitySignals {
+  descriptionWordCount: number;
+  specsCount: number;
+  useCaseCount: number;
+  faqCount: number;
+}
+
+export interface QualityAssessment<TSignals> {
+  status: ContentQualityStatus;
+  passed: boolean;
+  failedChecks: string[];
+  signals: TSignals;
+}
+
+export type ContentQualityEntityType =
+  | "creator_profile"
+  | "project"
+  | "product";
+
+export interface ContentQualityTelemetryEvent {
+  entityType: ContentQualityEntityType;
+  entityId: string;
+  status: ContentQualityStatus;
+  passed: boolean;
+  failedChecks: string[];
+  source: "api" | "web" | "batch";
+  evaluatedAtIso: string;
+}

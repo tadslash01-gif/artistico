@@ -31,6 +31,9 @@ import {
   StartStreamSchema,
   ChatMessageSchema,
   PROJECT_CATEGORIES,
+  evaluateProjectQuality,
+  evaluateProductQuality,
+  evaluateCreatorProfileQuality,
 } from "@artistico/shared";
 
 /** Strip HTML/script tags from user-supplied text to prevent stored XSS. */
@@ -87,6 +90,31 @@ interface ApiResponse {
 
 type RouteHandler = (req: ApiRequest, res: ApiResponse) => Promise<void>;
 
+function writeQualityTelemetryEvent(event: {
+  entityType: "creator_profile" | "project" | "product";
+  entityId: string;
+  status: "thin" | "partial" | "complete";
+  passed: boolean;
+  failedChecks: string[];
+  source?: "api" | "web" | "batch";
+}) {
+  const eventRef = db.collection("contentQualityEvents").doc();
+  void eventRef
+    .set({
+      eventId: eventRef.id,
+      entityType: event.entityType,
+      entityId: event.entityId,
+      status: event.status,
+      passed: event.passed,
+      failedChecks: event.failedChecks,
+      source: event.source || "api",
+      evaluatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    })
+    .catch((err) => {
+      console.warn("[quality-telemetry] failed to write event:", err);
+    });
+}
+
 // ─── In-memory platform stats cache (1-hour TTL) ──────
 let statsCache: { data: Record<string, number>; timestamp: number } | null = null;
 const STATS_CACHE_TTL_MS = 60 * 60 * 1000;
@@ -104,6 +132,11 @@ const routes: Record<string, RouteHandler> = {
     const { title, description, images, materialsUsed, materials, tags, category, creatorStory, useCase, difficulty, timeToBuild } = parsed.data;
     const safeTitle = stripHtml(title);
     const safeDescription = stripHtml(description);
+    const projectQuality = evaluateProjectQuality({
+      description: safeDescription,
+      images: images || [],
+      tags: tags || [],
+    });
     const slug =
       safeTitle
         .toLowerCase()
@@ -128,6 +161,12 @@ const routes: Record<string, RouteHandler> = {
       useCase: useCase ? stripHtml(useCase) : null,
       difficulty: difficulty || null,
       timeToBuild: timeToBuild || null,
+      contentQualityStatus: projectQuality.status,
+      contentQuality: {
+        passed: projectQuality.passed,
+        failedChecks: projectQuality.failedChecks,
+        ...projectQuality.signals,
+      },
       savesCount: 0,
       trendingScore: 0,
       status: "draft",
@@ -139,6 +178,13 @@ const routes: Record<string, RouteHandler> = {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
     await projectRef.set(project);
+    writeQualityTelemetryEvent({
+      entityType: "project",
+      entityId: projectRef.id,
+      status: projectQuality.status,
+      passed: projectQuality.passed,
+      failedChecks: projectQuality.failedChecks,
+    });
     res.status(201).json({ projectId: projectRef.id, slug });
   },
 
@@ -253,13 +299,33 @@ const routes: Record<string, RouteHandler> = {
     if (updateData.creatorStory) updateData.creatorStory = stripHtml(updateData.creatorStory as string);
     if (updateData.useCase) updateData.useCase = stripHtml(updateData.useCase as string);
 
+    const existingProject = doc.data()!;
+    const projectQuality = evaluateProjectQuality({
+      description: (updateData.description as string | undefined) ?? existingProject.description,
+      images: (updateData.images as string[] | undefined) ?? existingProject.images ?? [],
+      tags: (updateData.tags as string[] | undefined) ?? existingProject.tags ?? [],
+    });
+
     await db
       .collection("projects")
       .doc(projectId)
       .update({
         ...updateData,
+        contentQualityStatus: projectQuality.status,
+        contentQuality: {
+          passed: projectQuality.passed,
+          failedChecks: projectQuality.failedChecks,
+          ...projectQuality.signals,
+        },
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+    writeQualityTelemetryEvent({
+      entityType: "project",
+      entityId: projectId,
+      status: projectQuality.status,
+      passed: projectQuality.passed,
+      failedChecks: projectQuality.failedChecks,
+    });
     res.json({ success: true });
   },
 
@@ -294,6 +360,13 @@ const routes: Record<string, RouteHandler> = {
     }
     const { projectId, title, description, type, licenseType, price, category, images, digitalFileUrl, inventory, shippingRequired, shippingDetails, commissionDetails } = parsed.data;
 
+    const productQuality = evaluateProductQuality({
+      description: stripHtml(description),
+      specsCount: shippingDetails ? 1 : 0,
+      useCaseCount: commissionDetails ? 1 : 0,
+      faqCount: 0,
+    });
+
     // If projectId is provided, verify the project belongs to this creator
     if (projectId) {
       const projectDoc = await db.collection("projects").doc(projectId).get();
@@ -321,6 +394,12 @@ const routes: Record<string, RouteHandler> = {
       shippingRequired: shippingRequired || false,
       shippingDetails: shippingDetails || null,
       commissionDetails: commissionDetails || null,
+      contentQualityStatus: productQuality.status,
+      contentQuality: {
+        passed: productQuality.passed,
+        failedChecks: productQuality.failedChecks,
+        ...productQuality.signals,
+      },
       status: "active",
       salesCount: 0,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -340,6 +419,13 @@ const routes: Record<string, RouteHandler> = {
     }
 
     res.status(201).json({ productId: productRef.id });
+    writeQualityTelemetryEvent({
+      entityType: "product",
+      entityId: productRef.id,
+      status: productQuality.status,
+      passed: productQuality.passed,
+      failedChecks: productQuality.failedChecks,
+    });
   },
 
   "GET /products": async (req, res) => {
@@ -375,13 +461,44 @@ const routes: Record<string, RouteHandler> = {
       return;
     }
 
+    const existingProduct = doc.data()!;
+    const mergedDescription =
+      parsed.data.description !== undefined
+        ? stripHtml(parsed.data.description)
+        : existingProduct.description;
+
+    const updatePayload = {
+      ...parsed.data,
+      ...(parsed.data.description !== undefined ? { description: mergedDescription } : {}),
+    } as Record<string, unknown>;
+
+    const productQuality = evaluateProductQuality({
+      description: mergedDescription,
+      specsCount: (updatePayload.shippingDetails ?? existingProduct.shippingDetails) ? 1 : 0,
+      useCaseCount: (updatePayload.commissionDetails ?? existingProduct.commissionDetails) ? 1 : 0,
+      faqCount: 0,
+    });
+
     await db
       .collection("products")
       .doc(productId)
       .update({
-        ...parsed.data,
+        ...updatePayload,
+        contentQualityStatus: productQuality.status,
+        contentQuality: {
+          passed: productQuality.passed,
+          failedChecks: productQuality.failedChecks,
+          ...productQuality.signals,
+        },
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+    writeQualityTelemetryEvent({
+      entityType: "product",
+      entityId: productId,
+      status: productQuality.status,
+      passed: productQuality.passed,
+      failedChecks: productQuality.failedChecks,
+    });
     res.json({ success: true });
   },
 
@@ -648,6 +765,19 @@ const routes: Record<string, RouteHandler> = {
       return;
     }
     const { bio, location, specialties, socialLinks } = parsed.data;
+    const publishedProjectsCountSnap = await db
+      .collection("projects")
+      .where("creatorId", "==", req.user!.uid)
+      .where("status", "==", "published")
+      .count()
+      .get();
+
+    const creatorQuality = evaluateCreatorProfileQuality({
+      bio,
+      specialties,
+      publishedProjectsCount: publishedProjectsCountSnap.data().count,
+    });
+
     await db
       .collection("users")
       .doc(req.user!.uid)
@@ -661,8 +791,21 @@ const routes: Record<string, RouteHandler> = {
           stripeAccountId: "",
           stripeOnboardingComplete: false,
         },
+        creatorProfileQualityStatus: creatorQuality.status,
+        creatorProfileQuality: {
+          passed: creatorQuality.passed,
+          failedChecks: creatorQuality.failedChecks,
+          ...creatorQuality.signals,
+        },
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+    writeQualityTelemetryEvent({
+      entityType: "creator_profile",
+      entityId: req.user!.uid,
+      status: creatorQuality.status,
+      passed: creatorQuality.passed,
+      failedChecks: creatorQuality.failedChecks,
+    });
     auditLog({ action: "creator.promote", uid: req.user!.uid, ip: req.ip, userAgent: req.headers["user-agent"] });
     res.json({ success: true });
   },
@@ -712,6 +855,7 @@ const routes: Record<string, RouteHandler> = {
       followingCount: data.followingCount || 0,
       totalSales: data.totalSales || 0,
       isVerified: data.isVerified || false,
+      creatorProfileQualityStatus: data.creatorProfileQualityStatus || "thin",
       creatorProfile: data.isCreator
         ? {
             bio: data.creatorProfile?.bio,

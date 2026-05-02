@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getAllArticles } from "@/lib/blog-data";
+import { getQualifiedProductsForSitemap } from "@/lib/firebase-server";
 
 const BASE_URL = "https://artistico.love";
 const PROJECT_ID = "artistico-78f75";
@@ -70,9 +71,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   try {
-    const [projectDocs, creatorDocs] = await Promise.all([
+    const [projectDocs, creatorDocs, qualifiedProducts] = await Promise.all([
       queryFirestore("projects", "status", "published", ["slug", "updatedAt"]),
       queryFirestore("users", "isCreator", "true", ["uid", "updatedAt"]),
+      getQualifiedProductsForSitemap(),
     ]);
 
     const projectRoutes: MetadataRoute.Sitemap = projectDocs.map((d) => ({
@@ -93,7 +95,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     }));
 
-    return [...staticRoutes, ...blogRoutes, ...projectRoutes, ...creatorRoutes];
+    const productRoutes: MetadataRoute.Sitemap = qualifiedProducts.map((p) => ({
+      url: `${BASE_URL}/products/${p.productId}`,
+      lastModified: p.updatedAt ? new Date(p.updatedAt) : new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
+    }));
+
+    return [...staticRoutes, ...blogRoutes, ...projectRoutes, ...creatorRoutes, ...productRoutes];
   } catch {
     return [...staticRoutes, ...blogRoutes];
   }

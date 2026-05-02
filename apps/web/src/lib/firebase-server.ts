@@ -214,9 +214,22 @@ export interface SSRProduct {
   description: string;
   type: string;
   price: number;
+  currency: string;
   images: string[];
   category: string | null;
   status: string;
+  licenseType: string | null;
+  salesCount: number;
+  shippingRequired: boolean;
+  inventory: number | null;
+  videoUrl: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  /** Quality assessment persisted by the API (Sprint 0). */
+  contentQuality?: {
+    status: "thin" | "borderline" | "adequate" | "rich";
+    score: number;
+  } | null;
 }
 
 /**
@@ -287,4 +300,85 @@ export async function getRelatedProjects(
     limit: limitCount + 1,
   });
   return results.filter((p) => p.projectId !== excludeId).slice(0, limitCount);
+}
+
+// ---------------------------------------------------------------------------
+// Product fetchers
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch a single product by its ID.
+ */
+export async function getProductById(productId: string): Promise<SSRProduct | null> {
+  const product = await getDocument<SSRProduct>("products", productId);
+  if (!product) return null;
+  // Only surface active products publicly
+  if (product.status !== "active" && product.status !== "sold_out") return null;
+  return product;
+}
+
+/**
+ * Fetch products for a specific project (SSR sidebar/related block).
+ */
+export async function getProductsByProject(projectId: string, limitCount = 6): Promise<SSRProduct[]> {
+  return runQuery<SSRProduct>({
+    collection: "products",
+    filters: [
+      { field: "projectId", op: "EQUAL", value: { stringValue: projectId } },
+      { field: "status", op: "EQUAL", value: { stringValue: "active" } },
+    ],
+    limit: limitCount,
+  });
+}
+
+/**
+ * Fetch active products that pass quality gating — used for sitemap inclusion.
+ * Excludes "thin" quality products to satisfy AdSense content requirements.
+ */
+export async function getQualifiedProductsForSitemap(): Promise<
+  Pick<SSRProduct, "productId" | "updatedAt">[]
+> {
+  // Query all active products; quality filter applied in-process because
+  // Firestore REST runQuery does not support nested field filters on map values.
+  const res = await fetch(
+    `${FIRESTORE_BASE}:runQuery`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        structuredQuery: {
+          from: [{ collectionId: "products" }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: "status" },
+              op: "EQUAL",
+              value: { stringValue: "active" },
+            },
+          },
+          select: {
+            fields: [
+              { fieldPath: "productId" },
+              { fieldPath: "updatedAt" },
+              { fieldPath: "contentQuality" },
+            ],
+          },
+        },
+      }),
+      next: { revalidate: 3600 },
+    }
+  );
+
+  if (!res.ok) return [];
+
+  const data: RunQueryResult[] = await res.json();
+
+  return data
+    .filter((d) => d.document)
+    .map((d) => documentToObject<SSRProduct>(d.document!))
+    .filter((p) => {
+      // Include only adequate/rich quality products in sitemap
+      const qs = p.contentQuality?.status;
+      return qs === "adequate" || qs === "rich";
+    })
+    .map((p) => ({ productId: p.productId, updatedAt: p.updatedAt }));
 }
