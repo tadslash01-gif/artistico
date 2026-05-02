@@ -12,6 +12,8 @@ import {
   getDocs,
   startAfter,
   DocumentSnapshot,
+  doc,
+  getDoc,
 } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import ProjectCard from "@/components/ProjectCard";
@@ -71,6 +73,7 @@ interface ProjectData {
 interface ProductData {
   productId: string;
   projectId: string | null;
+  projectSlug?: string | null;
   creatorId: string;
   title: string;
   description: string;
@@ -200,7 +203,38 @@ export function BrowseClient() {
         if (append && lastDocRef.current) q = query(q, startAfter(lastDocRef.current));
 
         const snapshot = await getDocs(q);
-        const newProducts = snapshot.docs.map((doc) => doc.data() as ProductData);
+        const rawProducts = snapshot.docs.map((doc) => doc.data() as ProductData);
+
+        const projectIds = Array.from(
+          new Set(
+            rawProducts
+              .map((p) => p.projectId)
+              .filter((id): id is string => Boolean(id))
+          )
+        );
+
+        const slugEntries = await Promise.all(
+          projectIds.map(async (id) => {
+            try {
+              const projectSnap = await getDoc(doc(firestore!, "projects", id));
+              if (!projectSnap.exists()) return null;
+              const project = projectSnap.data() as { slug?: string; status?: string };
+              if (project.status !== "published" || !project.slug) return null;
+              return [id, project.slug] as const;
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        const slugMap = new Map(
+          slugEntries.filter((entry): entry is readonly [string, string] => entry !== null)
+        );
+
+        const newProducts = rawProducts.map((product) => ({
+          ...product,
+          projectSlug: product.projectId ? (slugMap.get(product.projectId) ?? null) : null,
+        }));
 
         const filtered = searchQuery
           ? newProducts.filter((p) => p.title.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -430,8 +464,8 @@ export function BrowseClient() {
 }
 
 function ProductCard({ product }: { product: ProductData }) {
-  const href = product.projectId
-    ? `/projects/${product.projectId}`
+  const href = product.projectSlug
+    ? `/projects/${product.projectSlug}`
     : "/browse?type=product";
 
   return (
