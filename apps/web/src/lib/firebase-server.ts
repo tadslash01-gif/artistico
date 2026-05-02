@@ -189,6 +189,9 @@ export interface SSRProject {
   difficulty: string | null;
   timeToBuild: string | null;
   createdAt: string | null;
+  updatedAt: string | null;
+  /** Top-level quality status string persisted by the API (Sprint 0). */
+  contentQualityStatus?: "thin" | "borderline" | "adequate" | "rich" | null;
 }
 
 export interface SSRCreator {
@@ -197,13 +200,21 @@ export interface SSRCreator {
   photoURL: string | null;
   isCreator: boolean;
   followersCount: number;
+  followingCount: number;
   totalSales: number;
   isVerified: boolean;
   creatorProfile: {
     bio?: string;
     location?: string;
     specialties?: string[];
+    socialLinks?: { platform: string; url: string }[];
   } | null;
+  /** Quality assessment persisted by the API (Sprint 0). */
+  contentQuality?: {
+    status: "thin" | "borderline" | "adequate" | "rich";
+    score: number;
+  } | null;
+  updatedAt?: string | null;
 }
 
 export interface SSRProduct {
@@ -332,8 +343,7 @@ export async function getProductsByProject(projectId: string, limitCount = 6): P
 }
 
 /**
- * Fetch active products that pass quality gating — used for sitemap inclusion.
- * Excludes "thin" quality products to satisfy AdSense content requirements.
+ * Fetch active products that pass quality gating — used for sitemap inclusion. * Excludes "thin" quality products to satisfy AdSense content requirements.
  */
 export async function getQualifiedProductsForSitemap(): Promise<
   Pick<SSRProduct, "productId" | "updatedAt">[]
@@ -381,4 +391,120 @@ export async function getQualifiedProductsForSitemap(): Promise<
       return qs === "adequate" || qs === "rich";
     })
     .map((p) => ({ productId: p.productId, updatedAt: p.updatedAt }));
+}
+
+// ---------------------------------------------------------------------------
+// Creator fetchers (Sprint 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch published projects by a specific creator — SSR use.
+ */
+export async function getCreatorProjects(
+  creatorId: string,
+  limitCount = 24
+): Promise<SSRProject[]> {
+  return runQuery<SSRProject>({
+    collection: "projects",
+    filters: [
+      { field: "creatorId", op: "EQUAL", value: { stringValue: creatorId } },
+      { field: "status", op: "EQUAL", value: { stringValue: "published" } },
+    ],
+    orderBy: { field: "createdAt", direction: "DESCENDING" },
+    limit: limitCount,
+  });
+}
+
+/**
+ * Fetch creator profiles that pass quality gating — used for sitemap inclusion.
+ * Excludes thin profiles to satisfy AdSense content requirements.
+ */
+export async function getQualifiedCreatorsForSitemap(): Promise<
+  Pick<SSRCreator, "uid" | "updatedAt">[]
+> {
+  const res = await fetch(`${FIRESTORE_BASE}:runQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId: "users" }],
+        where: {
+          fieldFilter: {
+            field: { fieldPath: "isCreator" },
+            op: "EQUAL",
+            value: { booleanValue: true },
+          },
+        },
+        select: {
+          fields: [
+            { fieldPath: "uid" },
+            { fieldPath: "updatedAt" },
+            { fieldPath: "contentQuality" },
+          ],
+        },
+      },
+    }),
+    next: { revalidate: 3600 },
+  });
+
+  if (!res.ok) return [];
+
+  const data: RunQueryResult[] = await res.json();
+
+  return data
+    .filter((d) => d.document)
+    .map((d) => documentToObject<SSRCreator>(d.document!))
+    .filter((c) => {
+      // Include only adequate/rich quality creator profiles in sitemap
+      const qs = c.contentQuality?.status;
+      return qs === "adequate" || qs === "rich";
+    })
+    .map((c) => ({ uid: c.uid, updatedAt: c.updatedAt ?? null }));
+}
+
+/**
+ * Fetch published projects that pass quality gating — used for sitemap inclusion.
+ * Excludes thin/borderline projects to satisfy AdSense content requirements.
+ */
+export async function getQualifiedProjectsForSitemap(): Promise<
+  Pick<SSRProject, "slug" | "updatedAt">[]
+> {
+  const res = await fetch(`${FIRESTORE_BASE}:runQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId: "projects" }],
+        where: {
+          fieldFilter: {
+            field: { fieldPath: "status" },
+            op: "EQUAL",
+            value: { stringValue: "published" },
+          },
+        },
+        select: {
+          fields: [
+            { fieldPath: "slug" },
+            { fieldPath: "updatedAt" },
+            { fieldPath: "contentQualityStatus" },
+          ],
+        },
+      },
+    }),
+    next: { revalidate: 3600 },
+  });
+
+  if (!res.ok) return [];
+
+  const data: RunQueryResult[] = await res.json();
+
+  return data
+    .filter((d) => d.document)
+    .map((d) => documentToObject<SSRProject>(d.document!))
+    .filter((p) => {
+      // Include only adequate/rich quality projects in sitemap
+      const qs = p.contentQualityStatus;
+      return qs === "adequate" || qs === "rich";
+    })
+    .map((p) => ({ slug: p.slug, updatedAt: p.updatedAt ?? null }));
 }

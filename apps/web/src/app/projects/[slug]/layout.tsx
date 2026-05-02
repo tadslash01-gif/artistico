@@ -8,6 +8,7 @@ interface ProjectMeta {
   images: string[];
   creatorName?: string;
   slug: string;
+  contentQualityStatus?: "thin" | "borderline" | "adequate" | "rich" | null;
 }
 
 export async function generateMetadata({
@@ -29,9 +30,16 @@ export async function generateMetadata({
       : "A handmade project shared on Artistico — the marketplace for hobby creators.";
     const image = project.images?.[0];
 
+    // Thin quality projects get noindex so low-value pages don't hurt AdSense
+    const isThin = project.contentQualityStatus === "thin";
+
     return {
       title,
       description,
+      alternates: {
+        canonical: `https://artistico.love/projects/${slug}`,
+      },
+      ...(isThin ? { robots: { index: false, follow: true } } : {}),
       openGraph: {
         title,
         description,

@@ -6,7 +6,15 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/dashboard/", "/login", "/signup", "/forgot-password", "/orders/"],
+        disallow: [
+          "/dashboard/",
+          "/login",
+          "/signup",
+          "/forgot-password",
+          "/orders/",
+          // Stream pages are CSR-only with no crawlable content; de-index until SSR replays exist
+          "/stream/",
+        ],
       },
     ],
     sitemap: "https://artistico.love/sitemap.xml",
